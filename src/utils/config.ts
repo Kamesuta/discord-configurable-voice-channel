@@ -7,16 +7,42 @@ import { copyFileSync, existsSync, readFileSync } from 'fs';
  * Structure of the configuration file
  */
 export interface Config {
-  /*
-   * Configuration names should be written in snake_case. Therefore, we are disabling eslint naming rules here.
-   * The 'requiresQuotes' rule is disabled here because it only excludes strings (including those with spaces) that need to be enclosed in quotes.
+  /**
+   * クライアントID
    */
-  /* eslint-disable @typescript-eslint/naming-convention */
-
-  /** Example of a string setting */
-  some_text_setting: string;
-
-  /* eslint-enable @typescript-eslint/naming-convention */
+  clientId: string;
+  /**
+   * デバッグ環境: サーバーID
+   */
+  developerGuildId: string;
+  /**
+   * 本番環境: サーバーID
+   */
+  generalGuildId: string;
+  /**
+   * デバッグ環境: 管理チャンネルID
+   */
+  managementChannelId: string;
+  /**
+   * エントランスチャンネルID
+   */
+  entranceChannelId: string;
+  /**
+   * チャットチャンネルID
+   */
+  chatChannelId: string;
+  /**
+   * プレフィックス
+   */
+  prefix: string;
+  /**
+   * ボットの色
+   */
+  botColor: number;
+  /**
+   * エラーの色
+   */
+  errorColor: number;
 }
 
 // If config.toml does not exist, copy config.default.toml
@@ -34,6 +60,38 @@ export const config: Config = parse(
 
 // Check the types
 assert(
-  config.some_text_setting && typeof config.some_text_setting === 'string',
-  'some_text_setting is required.',
+  config.clientId && typeof config.clientId === 'string',
+  'clientId is required.',
+);
+assert(
+  config.developerGuildId && typeof config.developerGuildId === 'string',
+  'developerGuildId is required.',
+);
+assert(
+  config.generalGuildId && typeof config.generalGuildId === 'string',
+  'generalGuildId is required.',
+);
+assert(
+  config.managementChannelId && typeof config.managementChannelId === 'string',
+  'managementChannelId is required.',
+);
+assert(
+  config.entranceChannelId && typeof config.entranceChannelId === 'string',
+  'entranceChannelId is required.',
+);
+assert(
+  config.chatChannelId && typeof config.chatChannelId === 'string',
+  'chatChannelId is required.',
+);
+assert(
+  config.prefix && typeof config.prefix === 'string',
+  'prefix is required.',
+);
+assert(
+  config.botColor && typeof config.botColor === 'number',
+  'botColor is required.',
+);
+assert(
+  config.errorColor && typeof config.errorColor === 'number',
+  'errorColor is required.',
 );

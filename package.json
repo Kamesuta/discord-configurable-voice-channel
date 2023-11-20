@@ -1,7 +1,7 @@
 {
-  "name": "nodejs-typescript-eslint-template",
+  "name": "configurable-voice-channel",
   "version": "1.0.0",
-  "description": "Robust TypeScript Template with eslint for Node.js",
+  "description": "Discord用のカスタムVCBot。入れる人を制限できる。",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -17,8 +17,6 @@
     "pm2:restart": "pm2 restart Kokone",
     "pm2:stop": "pm2 stop Kokone"
   },
-  "author": "Kamesuta",
-  "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.5.8",
     "@types/node-cron": "^3.0.11",

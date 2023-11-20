@@ -1,4 +1,18 @@
-# Example of string setting
-some_text_setting = "setting 設定 设置 सेटिंग"
-
-# ↓ Add your settings here
+# クライアントID
+clientId = "000000000000000000"
+# デバッグ環境: サーバーID
+developerGuildId = "000000000000000000"
+# 本番環境: サーバーID
+generalGuildId = "000000000000000000"
+# デバッグ環境: 管理チャンネルID
+managementChannelId = "000000000000000000"
+# エントランスチャンネルID
+entranceChannelId = "000000000000000000"
+# チャットチャンネルID
+chatChannelId = "000000000000000000"
+# プレフィックス
+prefix = "k/"
+# ボットの色
+botColor = 0xb9d98b
+# エラーの色
+errorColor = 0xf06060
