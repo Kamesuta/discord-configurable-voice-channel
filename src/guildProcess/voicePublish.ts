@@ -16,14 +16,14 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const publicChannelEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(Number(config.botColor))
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('ボイスチャンネルを公開しました')
   .setDescription(
     '設定を行いたい場合、下のメニューから設定を行ってください\n※ブロック・ブロック解除の操作は行えません',
   );
 
 const betaEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(Number(config.botColor))
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('現在のVC作成機能は開発段階のBeta版です。')
   .setDescription(
     'BOTの最終的な品質を示しているものではありません。ご理解とご支援ありがとうございます。グッドラック！\n(不具合や修正案、追加案があれば鯖主にご連絡を！)',

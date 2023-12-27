@@ -13,6 +13,6 @@ chatChannelId = "000000000000000000"
 # プレフィックス
 prefix = "k/"
 # ボットの色
-botColor = 0xb9d98b
+botColor = "#b9d98b"
 # エラーの色
-errorColor = 0xf06060
+errorColor = "#f06060"

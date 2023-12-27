@@ -2,6 +2,8 @@ import assert from 'assert';
 import { parse } from 'toml';
 import { getWorkdirPath } from './workdir.js';
 import { copyFileSync, existsSync, readFileSync } from 'fs';
+import { logger } from './log.js';
+import { exit } from 'process';
 
 /**
  * Structure of the configuration file
@@ -38,11 +40,11 @@ export interface Config {
   /**
    * ボットの色
    */
-  botColor: number;
+  botColor: string;
   /**
    * エラーの色
    */
-  errorColor: number;
+  errorColor: string;
 }
 
 // If config.toml does not exist, copy config.default.toml
@@ -54,9 +56,16 @@ if (!existsSync(getWorkdirPath('config.toml'))) {
 }
 
 /** Configuration */
-export const config: Config = parse(
-  readFileSync(getWorkdirPath('config.toml'), 'utf-8'),
-) as Config;
+export const config: Config = ((): Config => {
+  try {
+    return parse(
+      readFileSync(getWorkdirPath('config.toml'), 'utf-8'),
+    ) as Config;
+  } catch (error) {
+    logger.error('コンフィグの読み込みに失敗しました', error);
+    exit(1);
+  }
+})();
 
 // Check the types
 assert(
@@ -88,10 +97,14 @@ assert(
   'prefix is required.',
 );
 assert(
-  config.botColor && typeof config.botColor === 'number',
+  config.botColor &&
+    typeof config.botColor === 'string' &&
+    /^#[0-9A-F]{6}$/i.test(config.botColor),
   'botColor is required.',
 );
 assert(
-  config.errorColor && typeof config.errorColor === 'number',
+  config.errorColor &&
+    typeof config.errorColor === 'string' &&
+    /^#[0-9A-F]{6}$/i.test(config.botColor),
   'errorColor is required.',
 );

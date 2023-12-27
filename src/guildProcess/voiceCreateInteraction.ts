@@ -19,7 +19,7 @@ import { onVoicePublish } from './voicePublish.js';
 const prisma = new PrismaClient();
 
 const editChannelEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(Number(config.botColor))
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('ボイスチャンネルの設定を変更しました')
   .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
 

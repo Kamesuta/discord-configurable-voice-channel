@@ -13,7 +13,7 @@ import { config } from '../utils/config.js';
  * ボイスチャンネルを作成時に送る埋め込みメッセージ
  */
 export const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(Number(config.botColor))
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('ボイスチャンネルを作成しました。')
   .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
 
@@ -21,7 +21,7 @@ export const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
  * ボイスチャンネルの設定時に送る埋め込みメッセージ
  */
 export const settingChannelEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(Number(config.botColor))
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('ボイスチャンネルの設定')
   .setDescription(
     '二段階認証をしている場合、手動でチャンネルの設定やボイスチャットメンバーへのミュートなどが行えます。\n二段階認証していない場合、BOTからチャンネルの設定を行う事が出来ます\n※引き継がれるのはブロックしているユーザー・ロールのみです。チャンネル名などは引き継がれません。',
