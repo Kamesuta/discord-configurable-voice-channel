@@ -1,8 +1,8 @@
 // 必要なパッケージをインポートする
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import dotenv from 'dotenv';
-import * as interactionCreate from './events/interactionCreate.js';
-import * as voiceStateUpdate from './events/voiceStateUpdate.js';
+import { onVoiceCreateInteraction } from './guildProcess/voiceCreateInteraction.js';
+import { onVoiceStateUpdate } from './guildProcess/voiceCreate.js';
 
 // .envファイルを読み込む
 dotenv.config();
@@ -22,7 +22,8 @@ const client: Client = new Client({
 // -----------------------------------------------------------------------------------------------------------
 // イベントハンドラーを登録する
 // -----------------------------------------------------------------------------------------------------------
-interactionCreate.register(client);
-voiceStateUpdate.register(client);
+client.on(Events.InteractionCreate, onVoiceCreateInteraction);
+client.on(Events.VoiceStateUpdate, onVoiceStateUpdate);
 
+// Discordにログインする
 await client.login(process.env.KokoneToken);
