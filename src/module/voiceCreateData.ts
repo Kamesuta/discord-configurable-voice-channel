@@ -1,7 +1,5 @@
 import {
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   EmbedBuilder,
   PermissionsBitField,
   StringSelectMenuBuilder,
@@ -78,17 +76,6 @@ export const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
           value: 'bitrate_change',
         },
       ),
-  );
-
-/**
- * ボイスチャンネルを公開するためのボタン
- */
-export const publicButton: ActionRowBuilder<ButtonBuilder> =
-  new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId('publicButton')
-      .setLabel('ボイスチャンネルを公開する')
-      .setStyle(ButtonStyle.Success),
   );
 
 /**

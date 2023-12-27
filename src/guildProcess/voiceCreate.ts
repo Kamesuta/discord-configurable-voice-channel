@@ -4,7 +4,6 @@ import {
   userBlackListMenu,
   userBlackReleaseListMenu,
   operationMenu,
-  publicButton,
   voiceChannelId,
   memberRoleId,
   allowUserPermisson,
@@ -108,7 +107,6 @@ export function onVoiceStateUpdate(
                 userBlackListMenu,
                 userBlackReleaseListMenu,
                 operationMenu,
-                publicButton,
               ],
             });
           })

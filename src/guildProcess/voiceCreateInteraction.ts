@@ -14,7 +14,6 @@ import {
 } from 'discord.js';
 import { config } from '../utils/config.js';
 import { PrismaClient } from '@prisma/client';
-import { onVoicePublish } from './voicePublish.js';
 
 const prisma = new PrismaClient();
 
@@ -79,9 +78,6 @@ export async function onVoiceCreateInteraction(
   interaction: Interaction,
 ): Promise<void> {
   try {
-    if (interaction.isButton()) {
-      await onVoicePublish(interaction);
-    }
     if (
       !interaction.isStringSelectMenu() &&
       !interaction.isModalSubmit() &&
@@ -328,30 +324,16 @@ async function updateChannelDetails(
   }
   // -----------------------------------------------------------------------------------------------------------
   // チャンネルの設定メッセージを更新する処理
-  // (公開されていた場合、ブロックしているユーザー一覧は表示しない)
-  // (公開されていない場合、必ずコンポーネントの数は4になる)
   // -----------------------------------------------------------------------------------------------------------
-  const voiceCreateComponents = interaction.message?.components.length; // 設定メッセージのコンポーネントの数を取得
-  if (voiceCreateComponents === 4) {
-    await interaction.message?.edit({
-      embeds: [
-        editChannelEmbed.setFields(
-          {
-            name: '現在の設定',
-            value: `チャンネル名: ${channelName}\nユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
-          },
-          { name: 'ブロックしているユーザー', value: blockUserList },
-        ),
-      ],
-    });
-  } else {
-    await interaction.message?.edit({
-      embeds: [
-        editChannelEmbed.setFields({
+  await interaction.message?.edit({
+    embeds: [
+      editChannelEmbed.setFields(
+        {
           name: '現在の設定',
           value: `チャンネル名: ${channelName}\nユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
-        }),
-      ],
-    });
-  }
+        },
+        { name: 'ブロックしているユーザー', value: blockUserList },
+      ),
+    ],
+  });
 }
