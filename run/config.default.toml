@@ -1,15 +1,7 @@
-# クライアントID
-clientId = "000000000000000000"
-# デバッグ環境: サーバーID
-developerGuildId = "000000000000000000"
-# 本番環境: サーバーID
-generalGuildId = "000000000000000000"
-# デバッグ環境: 管理チャンネルID
-managementChannelId = "000000000000000000"
-# エントランスチャンネルID
-entranceChannelId = "000000000000000000"
-# チャットチャンネルID
-chatChannelId = "000000000000000000"
+# VC作成チャンネルID
+voiceChannelId = "000000000000000000"
+# メンバーロールID
+memberRoleId = "000000000000000000"
 # プレフィックス
 prefix = "k/"
 # ボットの色

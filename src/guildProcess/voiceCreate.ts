@@ -17,15 +17,7 @@ import { logger } from '../utils/log.js';
 const prisma = new PrismaClient();
 // デフォルトであるボイスチャンネル
 const defaultChannelList: string[] = [
-  '1161720349587669073', // 自動作成
-  '1043089821947678720', // 作業1
-  '1117728041532137494', // 作業2
-  '993406228346707988', // ゲーム1
-  '993406391924568154', // ゲーム2
-  '993406601807536160', // 色々1
-  '1022153462806478860', // 色々2
-  '1068464214311714816', // 色々3
-  '1068465168746553385', // 色々4
+  '1189494772637900841', // 自動作成
 ];
 
 /**
@@ -44,13 +36,13 @@ export function onVoiceStateUpdate(
   const userName = newMember
     ? `${newState.member?.user.displayName}`
     : oldMember
-    ? `${oldState.member?.user.displayName}`
-    : 'unknown user';
+      ? `${oldState.member?.user.displayName}`
+      : 'unknown user';
   const userId = newMember
     ? `${newState.member?.user.id}`
     : oldMember
-    ? `${oldState.member?.user.id}`
-    : '';
+      ? `${oldState.member?.user.id}`
+      : '';
   const defaultChannelName = `自動作成-${userName}`; // デフォルトのチャンネル名
   const deleteMap = new Map<string, NodeJS.Timeout>();
   // -----------------------------------------------------------------------------------------------------------

@@ -10,29 +10,13 @@ import { exit } from 'process';
  */
 export interface Config {
   /**
-   * クライアントID
+   * VC作成チャンネルID
    */
-  clientId: string;
+  voiceChannelId: string;
   /**
-   * デバッグ環境: サーバーID
+   * メンバーロールID
    */
-  developerGuildId: string;
-  /**
-   * 本番環境: サーバーID
-   */
-  generalGuildId: string;
-  /**
-   * デバッグ環境: 管理チャンネルID
-   */
-  managementChannelId: string;
-  /**
-   * エントランスチャンネルID
-   */
-  entranceChannelId: string;
-  /**
-   * チャットチャンネルID
-   */
-  chatChannelId: string;
+  memberRoleId: string;
   /**
    * プレフィックス
    */
@@ -69,28 +53,12 @@ export const config: Config = ((): Config => {
 
 // Check the types
 assert(
-  config.clientId && typeof config.clientId === 'string',
-  'clientId is required.',
+  config.voiceChannelId && typeof config.voiceChannelId === 'string',
+  'voiceChannelId is required.',
 );
 assert(
-  config.developerGuildId && typeof config.developerGuildId === 'string',
-  'developerGuildId is required.',
-);
-assert(
-  config.generalGuildId && typeof config.generalGuildId === 'string',
-  'generalGuildId is required.',
-);
-assert(
-  config.managementChannelId && typeof config.managementChannelId === 'string',
-  'managementChannelId is required.',
-);
-assert(
-  config.entranceChannelId && typeof config.entranceChannelId === 'string',
-  'entranceChannelId is required.',
-);
-assert(
-  config.chatChannelId && typeof config.chatChannelId === 'string',
-  'chatChannelId is required.',
+  config.memberRoleId && typeof config.memberRoleId === 'string',
+  'memberRoleId is required.',
 );
 assert(
   config.prefix && typeof config.prefix === 'string',

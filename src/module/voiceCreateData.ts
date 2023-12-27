@@ -94,12 +94,12 @@ export const publicButton: ActionRowBuilder<ButtonBuilder> =
 /**
  * ボイスチャンネルのID
  */
-export const voiceChannelId: string = '1161720349587669073';
+export const voiceChannelId: string = config.voiceChannelId;
 
 /**
  * メンバーロールのID
  */
-export const memberRoleId: string = '712572415850315807';
+export const memberRoleId: string = config.memberRoleId;
 
 /**
  * ボイスチャンネルを使用するユーザーの権限
