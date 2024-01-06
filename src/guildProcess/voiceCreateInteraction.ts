@@ -7,13 +7,19 @@ import {
   StringSelectMenuInteraction,
   TextInputBuilder,
   TextInputStyle,
-  VoiceChannel,
   UserSelectMenuInteraction,
   PermissionsBitField,
   ChannelType,
+  OverwriteResolvable,
 } from 'discord.js';
 import { config } from '../utils/config.js';
 import { PrismaClient } from '@prisma/client';
+import {
+  allowCreateUserPermisson,
+  allowUserPermisson,
+  denyUserPermisson,
+} from '../module/voiceCreateData.js';
+import { setChannelDetails } from '../module/voiceController.js';
 
 const prisma = new PrismaClient();
 
@@ -317,38 +323,14 @@ async function validatePermission(
 async function updateChannelDetails(
   interaction: MenuInteraction,
 ): Promise<void> {
-  const allUsers = await prisma.blackLists.findMany({
-    // メッセージを更新するためにデータを再度取得する
-    where: {
-      userId: String(interaction.user.id),
-    },
-  });
-  const channelName = (interaction.channel as VoiceChannel).name;
-  const channelUserLimit = (interaction.channel as VoiceChannel)?.userLimit;
-  const channelUserLimitText =
-    channelUserLimit === 0 ? '無制限' : `${channelUserLimit}人`;
-  const channelBitRate =
-    Number((interaction.channel as VoiceChannel)?.bitrate) / 1000;
+  // チャンネルの設定
+  const channel = interaction.channel;
+  if (!channel?.isVoiceBased()) return; // ボイスチャンネル以外は処理を終了
 
-  let blockUserList: string = 'なし';
+  // VCコントローラーのメッセージを取得
+  const message = interaction.message;
+  if (!message) return;
 
-  for (let i = 0; i < allUsers.length; i++) {
-    // ユーザーのブロックリストを全て取得して出力
-    if (blockUserList === 'なし') blockUserList = '';
-    blockUserList += `<@${String(allUsers[i].blockUserId)}>\n`;
-  }
-  // -----------------------------------------------------------------------------------------------------------
-  // チャンネルの設定メッセージを更新する処理
-  // -----------------------------------------------------------------------------------------------------------
-  await interaction.message?.edit({
-    embeds: [
-      editChannelEmbed.setFields(
-        {
-          name: '現在の設定',
-          value: `チャンネル名: ${channelName}\nユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
-        },
-        { name: 'ブロックしているユーザー', value: blockUserList },
-      ),
-    ],
-  });
+  // チャンネルの設定を更新
+  await setChannelDetails(interaction.user, channel, message);
 }

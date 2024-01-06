@@ -84,25 +84,10 @@ export const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
 export const voiceChannelId: string = config.voiceChannelId;
 
 /**
- * メンバーロールのID
- */
-export const memberRoleId: string = config.memberRoleId;
-
-/**
  * ボイスチャンネルを使用するユーザーの権限
  */
 export const allowUserPermisson: bigint[] = [
   PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
-  PermissionsBitField.Flags.SendMessages, // メッセージを送信
-  PermissionsBitField.Flags.EmbedLinks, // 埋め込みメッセージ
-  PermissionsBitField.Flags.AttachFiles, // ファイルを添付
-  PermissionsBitField.Flags.ReadMessageHistory, // メッセージ履歴を読む
-  PermissionsBitField.Flags.AddReactions, // リアクションの追加
-  PermissionsBitField.Flags.UseExternalEmojis, // 外部の絵文字の使用
-  PermissionsBitField.Flags.UseExternalStickers, // 外部のスタンプの使用
-  PermissionsBitField.Flags.UseExternalSounds, // 外部のサウンドボードの使用
-  PermissionsBitField.Flags.UseSoundboard, // サウンドボードの使用
-  PermissionsBitField.Flags.UseApplicationCommands, // アプリケーションコマンドの使用
 ];
 
 /**
@@ -120,6 +105,4 @@ export const allowCreateUserPermisson: bigint[] = [
  */
 export const denyUserPermisson: bigint[] = [
   PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
-  PermissionsBitField.Flags.SendMessages, // メッセージを送信
-  PermissionsBitField.Flags.AttachFiles, // ファイルを添付
 ];

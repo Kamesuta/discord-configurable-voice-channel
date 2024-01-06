@@ -5,13 +5,12 @@ import {
   userBlackReleaseListMenu,
   operationMenu,
   voiceChannelId,
-  memberRoleId,
   allowUserPermisson,
-  denyUserPermisson,
   allowCreateUserPermisson,
 } from '../module/voiceCreateData.js';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/log.js';
+import { setChannelDetails } from '../module/voiceController.js';
 
 const prisma = new PrismaClient();
 // デフォルトであるボイスチャンネル
@@ -30,18 +29,12 @@ export function onVoiceStateUpdate(
   oldState: VoiceState,
   newState: VoiceState,
 ): void {
-  const newMember = newState.member;
-  const oldMember = oldState.member;
-  const userName = newMember
-    ? `${newState.member?.user.displayName}`
-    : oldMember
-      ? `${oldState.member?.user.displayName}`
-      : 'unknown user';
-  const userId = newMember
-    ? `${newState.member?.user.id}`
-    : oldMember
-      ? `${oldState.member?.user.id}`
-      : '';
+  const member = newState.member ?? oldState.member;
+  if (!member) return; // メンバーが取得できない場合は処理を終了
+
+  const userName = member.displayName; // サーバーのニックネームを取得
+  const userId = member.user.id;
+
   const defaultChannelName = `自動作成-${userName}`; // デフォルトのチャンネル名
   const deleteMap = new Map<string, NodeJS.Timeout>();
   // -----------------------------------------------------------------------------------------------------------
@@ -51,19 +44,17 @@ export function onVoiceStateUpdate(
     oldState.channelId !== voiceChannelId &&
     newState.channelId === voiceChannelId
   ) {
-    const voiceChannel = newState.channel; // 特定のボイスチャンネルを取得
+    const voiceChannel = newState.channel; // VC作成ボイスチャンネルを取得
+    if (!voiceChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
+
     voiceChannel
-      ?.clone({
-        // 特定のボイスチャンネルと同じカテゴリーに新しいボイスチャンネルを作成
+      .clone({
+        // VC作成ボイスチャンネルと同じカテゴリーに新しいボイスチャンネルを作成
         name: defaultChannelName,
         permissionOverwrites: [
           {
             id: userId,
             allow: [allowCreateUserPermisson, allowUserPermisson],
-          },
-          {
-            id: memberRoleId,
-            deny: [denyUserPermisson],
           },
         ],
       })
@@ -71,44 +62,7 @@ export function onVoiceStateUpdate(
         newState
           .setChannel(newVoiceChannel) // 作成したボイスチャンネルに移動
           .then(async () => {
-            const channelName: string | undefined = newState.channel?.name;
-            let channelUserLimit: number | string | undefined =
-              newState.channel?.userLimit;
-            if (channelUserLimit === 0) {
-              channelUserLimit = '無制限';
-            } else {
-              channelUserLimit = `${channelUserLimit}人`;
-            }
-            const channelBitRate = Number(newState.channel?.bitrate) / 1000;
-            let blockUserList = 'なし';
-
-            const allUsers = await prisma.blackLists.findMany({
-              where: {
-                userId: String(newMember?.id),
-              },
-            });
-            for (let i = 0; i < allUsers.length; i++) {
-              if (blockUserList === 'なし') blockUserList = '';
-              blockUserList += `<@${String(allUsers[i].blockUserId)}>\n`;
-            }
-            await newVoiceChannel.send({
-              // 移動が成功したらメッセージを送信
-              content: `<@${userId}>`,
-              embeds: [
-                createChannelEmbed.setFields(
-                  {
-                    name: '現在の設定',
-                    value: `チャンネル名: ${channelName}\nユーザー人数制限: ${channelUserLimit}\nビットレート: ${channelBitRate}kbps`,
-                  },
-                  { name: 'ブロックしているユーザー', value: blockUserList },
-                ),
-              ],
-              components: [
-                userBlackListMenu,
-                userBlackReleaseListMenu,
-                operationMenu,
-              ],
-            });
+            await setChannelDetails(member.user, newVoiceChannel); // チャンネルの詳細を設定
           })
           .catch((error: Error) => {
             logger.error(error);
