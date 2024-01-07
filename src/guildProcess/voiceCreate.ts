@@ -1,18 +1,12 @@
 import { VoiceState } from 'discord.js';
 import {
-  createChannelEmbed,
-  userBlackListMenu,
-  userBlackReleaseListMenu,
-  operationMenu,
   voiceChannelId,
   allowUserPermisson,
   allowCreateUserPermisson,
 } from '../module/voiceCreateData.js';
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/log.js';
 import { setChannelDetails } from '../module/voiceController.js';
 
-const prisma = new PrismaClient();
 // デフォルトであるボイスチャンネル
 const defaultChannelList: string[] = [
   '1189494772637900841', // 自動作成

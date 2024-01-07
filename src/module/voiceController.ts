@@ -25,23 +25,15 @@ import {
   userBlackReleaseListMenu,
 } from '../module/voiceCreateData.js';
 
-const prisma = new PrismaClient();
+/**
+ * データベースのインスタンス
+ */
+export const prisma = new PrismaClient();
 
 const editChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('ボイスチャンネルの設定を変更しました')
   .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
-
-const changeNameModal: ModalBuilder = new ModalBuilder()
-  .setCustomId('changeNameModal')
-  .setTitle('チャンネル名の変更');
-const changeNameInput: TextInputBuilder = new TextInputBuilder()
-  .setMaxLength(20)
-  .setMinLength(1)
-  .setCustomId('changeNameInput')
-  .setLabel('変更するチャンネル名を入力してください')
-  .setPlaceholder('20文字までです')
-  .setStyle(TextInputStyle.Short);
 
 const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
   .setCustomId('changePeopleLimitedModal')
@@ -65,10 +57,6 @@ const changeBitRateInput: TextInputBuilder = new TextInputBuilder()
   .setLabel('変更するビットレート数を入力してください')
   .setPlaceholder('8~384Kbpsまでです(64kbps以下は非推奨です)')
   .setStyle(TextInputStyle.Short);
-
-const changeNameRow: ActionRowBuilder<TextInputBuilder> =
-  new ActionRowBuilder<TextInputBuilder>().addComponents(changeNameInput);
-changeNameModal.addComponents(changeNameRow);
 
 const changePeopleLimitedRow: ActionRowBuilder<TextInputBuilder> =
   new ActionRowBuilder<TextInputBuilder>().addComponents(
@@ -106,7 +94,6 @@ export async function setChannelDetails(
   });
 
   // チャンネルの設定
-  const channelName = channel.name;
   const channelUserLimit = channel.userLimit;
   const channelUserLimitText =
     channelUserLimit === 0 ? '無制限' : `${channelUserLimit}人`;
@@ -124,7 +111,7 @@ export async function setChannelDetails(
   const embedFields: APIEmbedField[] = [
     {
       name: '現在の設定',
-      value: `チャンネル名: ${channelName}\nユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
+      value: `ユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
     },
     { name: 'ブロックしているユーザー', value: blockUserList },
   ];
@@ -173,5 +160,24 @@ export async function setChannelDetails(
   );
   for (const [_, member] of blockedConnectedMembers) {
     await member.voice.disconnect();
+  }
+}
+
+/**
+ * ボタンが押されたときの処理
+ * @param interaction インタラクション
+ * @param operationPage ページ
+ */
+export async function onOperationMenu(
+  interaction: StringSelectMenuInteraction,
+  operationPage: string,
+): Promise<void> {
+  switch (operationPage) {
+    case 'peopleLimited': // 人数制限
+      await interaction.showModal(changePeopleLimitedModal);
+      break;
+    case 'bitrate': // ビットレート
+      await interaction.showModal(changeBitRateModal);
+      break;
   }
 }

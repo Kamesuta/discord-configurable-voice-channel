@@ -1,72 +1,10 @@
+import { Interaction, PermissionsBitField, ChannelType } from 'discord.js';
 import {
-  ActionRowBuilder,
-  Interaction,
-  ModalBuilder,
-  ModalSubmitInteraction,
-  StringSelectMenuInteraction,
-  TextInputBuilder,
-  TextInputStyle,
-  UserSelectMenuInteraction,
-  PermissionsBitField,
-  ChannelType,
-} from 'discord.js';
-import { PrismaClient } from '@prisma/client';
-import { setChannelDetails } from '../module/voiceController.js';
-
-const prisma = new PrismaClient();
-
-const changeNameModal: ModalBuilder = new ModalBuilder()
-  .setCustomId('changeNameModal')
-  .setTitle('チャンネル名の変更');
-const changeNameInput: TextInputBuilder = new TextInputBuilder()
-  .setMaxLength(20)
-  .setMinLength(1)
-  .setCustomId('changeNameInput')
-  .setLabel('変更するチャンネル名を入力してください')
-  .setPlaceholder('20文字までです')
-  .setStyle(TextInputStyle.Short);
-
-const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
-  .setCustomId('changePeopleLimitedModal')
-  .setTitle('人数制限の変更');
-const changePeopleLimitedInput: TextInputBuilder = new TextInputBuilder()
-  .setMaxLength(2)
-  .setMinLength(1)
-  .setCustomId('changePeopleLimitedInput')
-  .setLabel('変更する人数を入力してください')
-  .setPlaceholder('0~99人までです(0人の場合は無制限になります)')
-  .setStyle(TextInputStyle.Short);
-
-const changeBitRateModal: ModalBuilder = new ModalBuilder()
-  .setCustomId('changeBitRateModal')
-  .setTitle('ビットレートの変更');
-
-const changeBitRateInput: TextInputBuilder = new TextInputBuilder()
-  .setMaxLength(3)
-  .setMinLength(1)
-  .setCustomId('changeBitRateInput')
-  .setLabel('変更するビットレート数を入力してください')
-  .setPlaceholder('8~384Kbpsまでです(64kbps以下は非推奨です)')
-  .setStyle(TextInputStyle.Short);
-
-const changeNameRow: ActionRowBuilder<TextInputBuilder> =
-  new ActionRowBuilder<TextInputBuilder>().addComponents(changeNameInput);
-changeNameModal.addComponents(changeNameRow);
-
-const changePeopleLimitedRow: ActionRowBuilder<TextInputBuilder> =
-  new ActionRowBuilder<TextInputBuilder>().addComponents(
-    changePeopleLimitedInput,
-  );
-changePeopleLimitedModal.addComponents(changePeopleLimitedRow);
-
-const changeBitRateRow: ActionRowBuilder<TextInputBuilder> =
-  new ActionRowBuilder<TextInputBuilder>().addComponents(changeBitRateInput);
-changeBitRateModal.addComponents(changeBitRateRow);
-
-type MenuInteraction =
-  | StringSelectMenuInteraction
-  | UserSelectMenuInteraction
-  | ModalSubmitInteraction;
+  MenuInteraction,
+  onOperationMenu,
+  prisma,
+  setChannelDetails,
+} from '../module/voiceController.js';
 
 /**
  * ボイスチャンネル作成のインタラクション処理
@@ -95,35 +33,7 @@ export async function onVoiceCreateInteraction(
           if (!interaction.isStringSelectMenu()) return;
 
           const operationPage = interaction.values[0].split('_')[0];
-          switch (operationPage) {
-            case 'name': // 名前
-              await interaction.showModal(changeNameModal);
-              break;
-            case 'peopleLimited': // 人数制限
-              await interaction.showModal(changePeopleLimitedModal);
-              break;
-            case 'bitrate': // ビットレート
-              await interaction.showModal(changeBitRateModal);
-              break;
-          }
-          break;
-        }
-
-        // -----------------------------------------------------------------------------------------------------------
-        // チャンネル名の変更
-        // -----------------------------------------------------------------------------------------------------------
-        case 'changeNameModal': {
-          if (!(await validatePermission(interaction))) return;
-          if (!interaction.isModalSubmit()) return;
-
-          await interaction.deferReply({ ephemeral: true });
-          const channelName =
-            interaction.fields.getTextInputValue('changeNameInput');
-          await channel.setName(channelName);
-          await updateChannelDetails(interaction);
-          await interaction.editReply({
-            content: `チャンネルの名前を${channelName}に変更しました`,
-          });
+          await onOperationMenu(interaction, operationPage);
           break;
         }
 

@@ -61,11 +61,6 @@ export const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
       .setMinValues(1)
       .addOptions(
         {
-          label: '名前',
-          description: 'チャンネルの名前を変更できます',
-          value: 'name_change',
-        },
-        {
           label: '人数制限',
           description: '人数制限の人数を変更できます(0~99)',
           value: 'peopleLimited_change',
