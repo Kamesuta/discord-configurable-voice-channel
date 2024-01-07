@@ -164,4 +164,14 @@ export async function setChannelDetails(
   // チャンネルの権限をセットする
   // -----------------------------------------------------------------------------------------------------------
   await channel.permissionOverwrites.set(overwrites);
+
+  // -----------------------------------------------------------------------------------------------------------
+  // ブロックされたユーザーが既にVCにいる場合、VCから退出させる
+  // -----------------------------------------------------------------------------------------------------------
+  const blockedConnectedMembers = channel.members.filter((member) =>
+    allUsers.find((user) => member.id === user.blockUserId),
+  );
+  for (const [_, member] of blockedConnectedMembers) {
+    await member.voice.disconnect();
+  }
 }
