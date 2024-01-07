@@ -1,5 +1,4 @@
 import {
-  EmbedBuilder,
   ActionRowBuilder,
   Interaction,
   ModalBuilder,
@@ -10,23 +9,11 @@ import {
   UserSelectMenuInteraction,
   PermissionsBitField,
   ChannelType,
-  OverwriteResolvable,
 } from 'discord.js';
-import { config } from '../utils/config.js';
 import { PrismaClient } from '@prisma/client';
-import {
-  allowCreateUserPermisson,
-  allowUserPermisson,
-  denyUserPermisson,
-} from '../module/voiceCreateData.js';
 import { setChannelDetails } from '../module/voiceController.js';
 
 const prisma = new PrismaClient();
-
-const editChannelEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('ボイスチャンネルの設定を変更しました')
-  .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
 
 const changeNameModal: ModalBuilder = new ModalBuilder()
   .setCustomId('changeNameModal')
