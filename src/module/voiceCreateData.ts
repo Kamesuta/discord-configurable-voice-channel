@@ -74,9 +74,9 @@ export const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
   );
 
 /**
- * ボイスチャンネルのID
+ * カスタムVCのチャンネルIDリスト
  */
-export const voiceChannelId: string = config.voiceChannelId;
+export const customVcChannelIdList: string[] = config.customVcChannelIdList;
 
 /**
  * ボイスチャンネルを使用するユーザーの権限

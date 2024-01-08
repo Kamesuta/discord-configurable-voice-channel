@@ -10,18 +10,6 @@ import { exit } from 'process';
  */
 export interface Config {
   /**
-   * VC作成チャンネルID
-   */
-  voiceChannelId: string;
-  /**
-   * メンバーロールID
-   */
-  memberRoleId: string;
-  /**
-   * プレフィックス
-   */
-  prefix: string;
-  /**
    * ボットの色
    */
   botColor: string;
@@ -29,6 +17,10 @@ export interface Config {
    * エラーの色
    */
   errorColor: string;
+  /**
+   * カスタムVCのチャンネルIDリスト
+   */
+  customVcChannelIdList: string[];
 }
 
 // If config.toml does not exist, copy config.default.toml
@@ -53,26 +45,20 @@ export const config: Config = ((): Config => {
 
 // Check the types
 assert(
-  config.voiceChannelId && typeof config.voiceChannelId === 'string',
-  'voiceChannelId is required.',
-);
-assert(
-  config.memberRoleId && typeof config.memberRoleId === 'string',
-  'memberRoleId is required.',
-);
-assert(
-  config.prefix && typeof config.prefix === 'string',
-  'prefix is required.',
-);
-assert(
   config.botColor &&
     typeof config.botColor === 'string' &&
     /^#[0-9A-F]{6}$/i.test(config.botColor),
-  'botColor is required.',
+  'botColor is invalid.',
 );
 assert(
   config.errorColor &&
     typeof config.errorColor === 'string' &&
     /^#[0-9A-F]{6}$/i.test(config.botColor),
-  'errorColor is required.',
+  'errorColor is invalid.',
+);
+assert(
+  config.customVcChannelIdList &&
+    typeof config.customVcChannelIdList === 'object' &&
+    typeof config.customVcChannelIdList[0] === 'string',
+  'customVcChannelIdList is invalid.',
 );

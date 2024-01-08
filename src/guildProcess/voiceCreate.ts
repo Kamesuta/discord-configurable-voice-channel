@@ -1,16 +1,13 @@
 import { VoiceState } from 'discord.js';
-import {
-  voiceChannelId,
-  allowUserPermisson,
-  allowCreateUserPermisson,
-} from '../module/voiceCreateData.js';
+import { customVcChannelIdList } from '../module/voiceCreateData.js';
 import { logger } from '../utils/log.js';
-import { setChannelDetails } from '../module/voiceController.js';
+import {
+  resetChannelDetails,
+  setChannelDetails,
+} from '../module/voiceController.js';
 
-// デフォルトであるボイスチャンネル
-const defaultChannelList: string[] = [
-  '1189494772637900841', // 自動作成
-];
+// チャンネルを解放するまでの時間
+const channelFreeTime = 10 * 1000;
 
 /**
  * ボイスチャンネル作成機能
@@ -19,91 +16,66 @@ const defaultChannelList: string[] = [
  * @param oldState 移動前のステータス
  * @param newState 移動後のステータス
  */
-export function onVoiceStateUpdate(
+export async function onVoiceStateUpdate(
   oldState: VoiceState,
   newState: VoiceState,
-): void {
+): Promise<void> {
   const member = newState.member ?? oldState.member;
   if (!member) return; // メンバーが取得できない場合は処理を終了
 
-  const userName = member.displayName; // サーバーのニックネームを取得
-  const userId = member.user.id;
-
-  const defaultChannelName = `自動作成-${userName}`; // デフォルトのチャンネル名
   const deleteMap = new Map<string, NodeJS.Timeout>();
+
   // -----------------------------------------------------------------------------------------------------------
   // VC作成チャンネルに入った場合の処理
   // -----------------------------------------------------------------------------------------------------------
   if (
-    oldState.channelId !== voiceChannelId &&
-    newState.channelId === voiceChannelId
+    oldState.channelId !== newState.channelId &&
+    newState.channelId &&
+    customVcChannelIdList.includes(newState.channelId)
   ) {
-    const voiceChannel = newState.channel; // VC作成ボイスチャンネルを取得
-    if (!voiceChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
+    const newChannel = newState.channel;
+    if (!newChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
-    voiceChannel
-      .clone({
-        // VC作成ボイスチャンネルと同じカテゴリーに新しいボイスチャンネルを作成
-        name: defaultChannelName,
-        permissionOverwrites: [
-          {
-            id: userId,
-            allow: [allowCreateUserPermisson, allowUserPermisson],
-          },
-        ],
-      })
-      .then((newVoiceChannel) => {
-        newState
-          .setChannel(newVoiceChannel) // 作成したボイスチャンネルに移動
-          .then(async () => {
-            await setChannelDetails(member.user, newVoiceChannel); // チャンネルの詳細を設定
-          })
-          .catch((error: Error) => {
-            logger.error(error);
-            void newVoiceChannel.send('移動に失敗しました');
-          });
-      })
-      .catch((error: Error) => {
-        logger.error(error);
-      });
+    try {
+      // マップに予約がある場合
+      if (deleteMap.has(newChannel.id)) {
+        // -----------------------------------------------------------------------------------------------------------
+        // VCに入り直した場合、チャンネルを削除する予約をキャンセルする処理
+        // -----------------------------------------------------------------------------------------------------------
+        clearTimeout(deleteMap.get(newChannel.id)); // 予約をキャンセル
+        deleteMap.delete(newChannel.id);
+      } else if (newChannel.members.size === 1) {
+        // -----------------------------------------------------------------------------------------------------------
+        // 初めてVCに入った場合、入った人をオーナーにしてチャンネルを初期化する処理
+        // -----------------------------------------------------------------------------------------------------------
+        // チャンネルの詳細を設定
+        await setChannelDetails(member.user, newChannel);
+      }
+    } catch (error) {
+      logger.error(error);
+    }
   }
+
   // -----------------------------------------------------------------------------------------------------------
   // VCに誰もいない場合、チャンネルを削除する処理
   // -----------------------------------------------------------------------------------------------------------
-  if (oldState.channelId && oldState.channelId !== newState.channelId) {
+  if (
+    oldState.channelId !== newState.channelId &&
+    oldState.channelId &&
+    !customVcChannelIdList.includes(oldState.channelId)
+  ) {
+    const oldChannel = oldState.channel;
+    if (!oldChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
+
     try {
-      for (let i = 0; i < defaultChannelList.length; i++) {
-        // デフォルトで存在しているボイスチャンネルを除外する
-        if (defaultChannelList[i] === oldState.channelId) return;
-      }
-      if (oldState.channel?.members.size === 0) {
+      if (oldChannel.members.size === 0) {
         // チャンネルに誰もいない場合
         const timeout = setTimeout(() => {
-          // 30秒後に削除する予約を作成
-          void oldState.channel?.delete();
-          if (oldState.channel) {
-            deleteMap.delete(oldState.channel.id);
-          }
-        }, 30 * 1000);
-        deleteMap.set(oldState.channel.id, timeout); // マップに予約を保存
-      }
-    } catch (error) {
-      logger.warn(error);
-    }
-  }
-  // -----------------------------------------------------------------------------------------------------------
-  // VCに入り直した場合、チャンネルを削除する予約をキャンセルする処理
-  // -----------------------------------------------------------------------------------------------------------
-  if (newState.channelId && newState.channelId !== oldState.channelId) {
-    try {
-      for (let i = 0; i < defaultChannelList.length; i++) {
-        // デフォルトで存在しているボイスチャンネルを除外する
-        if (defaultChannelList[i] === newState.channelId) return;
-      }
-      if (deleteMap.has(newState.channelId)) {
-        // マップに予約がある場合
-        clearTimeout(deleteMap.get(newState.channelId)); // 予約をキャンセル
-        deleteMap.delete(newState.channelId);
+          // チャンネルの詳細をリセット
+          void resetChannelDetails(oldChannel);
+          deleteMap.delete(oldChannel.id);
+        }, channelFreeTime);
+        deleteMap.set(oldChannel.id, timeout); // マップに予約を保存
       }
     } catch (error) {
       logger.warn(error);

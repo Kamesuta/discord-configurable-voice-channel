@@ -164,6 +164,23 @@ export async function setChannelDetails(
 }
 
 /**
+ * チャンネルの設定を初期化する
+ * @param channel チャンネル
+ */
+export async function resetChannelDetails(
+  channel: VoiceBasedChannel,
+): Promise<void> {
+  // -----------------------------------------------------------------------------------------------------------
+  // チャンネルの権限をリセットする
+  // -----------------------------------------------------------------------------------------------------------
+  await channel.edit({
+    userLimit: 0,
+    bitrate: 64000,
+    permissionOverwrites: [],
+  });
+}
+
+/**
  * ボタンが押されたときの処理
  * @param interaction インタラクション
  * @param operationPage ページ
