@@ -94,7 +94,8 @@ export async function setChannelDetails(
 ): Promise<void> {
   const allUsers = await prisma.blackLists.findMany({
     where: {
-      userId: String(ownerUser.id),
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      user_id: String(ownerUser.id),
     },
   });
 
@@ -107,7 +108,7 @@ export async function setChannelDetails(
   // ブロックしているユーザーリストの文字列を作成
   const blockUserList: string =
     allUsers.length > 0
-      ? allUsers.map((user) => `<@${user.blockUserId}>`).join('\n')
+      ? allUsers.map((user) => `<@${user.block_user_id}>`).join('\n')
       : 'なし';
 
   // -----------------------------------------------------------------------------------------------------------
@@ -144,7 +145,7 @@ export async function setChannelDetails(
   // -----------------------------------------------------------------------------------------------------------
   for (const user of allUsers) {
     // ユーザーをフェッチしないと内部でresolveに失敗してエラーが出る
-    const blockUser = await channel.client.users.fetch(user.blockUserId);
+    const blockUser = await channel.client.users.fetch(user.block_user_id);
     if (blockUser) {
       overwrites.push({
         id: blockUser,
@@ -161,7 +162,7 @@ export async function setChannelDetails(
   // ブロックされたユーザーが既にVCにいる場合、VCから退出させる
   // -----------------------------------------------------------------------------------------------------------
   const blockedConnectedMembers = channel.members.filter((member) =>
-    allUsers.find((user) => member.id === user.blockUserId),
+    allUsers.find((user) => member.id === user.block_user_id),
   );
   for (const [_, member] of blockedConnectedMembers) {
     await member.voice.disconnect();

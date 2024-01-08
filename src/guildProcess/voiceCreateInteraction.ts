@@ -113,21 +113,26 @@ export async function onVoiceCreateInteraction(
           // チャンネルがボイスチャンネルかどうか確認
           const allUsers = await prisma.blackLists.findMany({
             where: {
-              userId: String(interaction.user.id),
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              user_id: String(interaction.user.id),
             },
           });
           for (let i = 0; i < selectedMemberNum; i++) {
             const blockUserId: string = String(interaction.values[i]);
             // Prismaを使ってBlackListsテーブルにレコードを作成
             if (
-              allUsers.find((user) => String(user.blockUserId) === blockUserId)
+              allUsers.find(
+                (user) => String(user.block_user_id) === blockUserId,
+              )
             ) {
               errorUsers.push(blockUserId);
             } else {
               await prisma.blackLists.create({
                 data: {
-                  userId: String(userId),
-                  blockUserId: String(blockUserId),
+                  /* eslint-disable @typescript-eslint/naming-convention */
+                  user_id: String(userId),
+                  block_user_id: String(blockUserId),
+                  /* eslint-enable @typescript-eslint/naming-convention */
                 },
               });
             }
@@ -162,17 +167,20 @@ export async function onVoiceCreateInteraction(
           // チャンネルがボイスチャンネルかどうか確認
           const allUsers = await prisma.blackLists.findMany({
             where: {
-              userId: String(interaction.user.id),
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              user_id: String(interaction.user.id),
             },
           });
           for (let i = 0; i < interaction.values.length; i++) {
             const blockUserId: string = String(interaction.values[i]);
             for (let i = 0; i < allUsers.length; i++) {
-              if (String(allUsers[i].blockUserId) === blockUserId) {
+              if (String(allUsers[i].block_user_id) === blockUserId) {
                 await prisma.blackLists.deleteMany({
                   where: {
-                    userId: String(userId),
-                    blockUserId: String(blockUserId),
+                    /* eslint-disable @typescript-eslint/naming-convention */
+                    user_id: String(userId),
+                    block_user_id: String(blockUserId),
+                    /* eslint-enable @typescript-eslint/naming-convention */
                   },
                 });
               }
