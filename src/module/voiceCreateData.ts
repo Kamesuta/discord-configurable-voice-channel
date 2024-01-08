@@ -12,7 +12,7 @@ import { config } from '../utils/config.js';
  */
 export const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('ボイスチャンネルを作成しました。')
+  .setTitle('カスタムVCを作成しました。')
   .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
 
 /**
@@ -20,7 +20,7 @@ export const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
  */
 export const settingChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('ボイスチャンネルの設定')
+  .setTitle('カスタムVCの設定')
   .setDescription(
     '二段階認証をしている場合、手動でチャンネルの設定やボイスチャットメンバーへのミュートなどが行えます。\n二段階認証していない場合、BOTからチャンネルの設定を行う事が出来ます\n※引き継がれるのはブロックしているユーザー・ロールのみです。チャンネル名などは引き継がれません。',
   );

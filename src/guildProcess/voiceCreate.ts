@@ -6,9 +6,6 @@ import {
   setChannelDetails,
 } from '../module/voiceController.js';
 
-// チャンネルを解放するまでの時間
-const channelFreeTime = 10 * 1000;
-
 /**
  * ボイスチャンネル作成機能
  * VC作成チャンネルにアクセス -> VC作成(権限管理) -> VC移動
@@ -23,8 +20,6 @@ export async function onVoiceStateUpdate(
   const member = newState.member ?? oldState.member;
   if (!member) return; // メンバーが取得できない場合は処理を終了
 
-  const deleteMap = new Map<string, NodeJS.Timeout>();
-
   // -----------------------------------------------------------------------------------------------------------
   // VC作成チャンネルに入った場合の処理
   // -----------------------------------------------------------------------------------------------------------
@@ -33,26 +28,17 @@ export async function onVoiceStateUpdate(
     newState.channelId &&
     customVcChannelIdList.includes(newState.channelId)
   ) {
-    const newChannel = newState.channel;
-    if (!newChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
+    if (!newState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
-    try {
-      // マップに予約がある場合
-      if (deleteMap.has(newChannel.id)) {
-        // -----------------------------------------------------------------------------------------------------------
-        // VCに入り直した場合、チャンネルを削除する予約をキャンセルする処理
-        // -----------------------------------------------------------------------------------------------------------
-        clearTimeout(deleteMap.get(newChannel.id)); // 予約をキャンセル
-        deleteMap.delete(newChannel.id);
-      } else if (newChannel.members.size === 1) {
-        // -----------------------------------------------------------------------------------------------------------
-        // 初めてVCに入った場合、入った人をオーナーにしてチャンネルを初期化する処理
-        // -----------------------------------------------------------------------------------------------------------
-        // チャンネルの詳細を設定
-        await setChannelDetails(member.user, newChannel);
-      }
-    } catch (error) {
-      logger.error(error);
+    if (newState.channel.members.size === 1) {
+      // -----------------------------------------------------------------------------------------------------------
+      // 初めてVCに入った場合、入った人をオーナーにしてチャンネルを初期化する処理
+      // -----------------------------------------------------------------------------------------------------------
+      // チャンネルの詳細を設定
+      await setChannelDetails(member.user, newState.channel)
+        .catch((error) => {
+          logger.error(error);
+        });
     }
   }
 
@@ -64,21 +50,14 @@ export async function onVoiceStateUpdate(
     oldState.channelId &&
     !customVcChannelIdList.includes(oldState.channelId)
   ) {
-    const oldChannel = oldState.channel;
-    if (!oldChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
+    if (!oldState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
-    try {
-      if (oldChannel.members.size === 0) {
-        // チャンネルに誰もいない場合
-        const timeout = setTimeout(() => {
-          // チャンネルの詳細をリセット
-          void resetChannelDetails(oldChannel);
-          deleteMap.delete(oldChannel.id);
-        }, channelFreeTime);
-        deleteMap.set(oldChannel.id, timeout); // マップに予約を保存
-      }
-    } catch (error) {
-      logger.warn(error);
+    if (oldState.channel.members.size === 0) {
+      // チャンネルの詳細をリセット
+      await resetChannelDetails(oldState.channel)
+        .catch((error) => {
+          logger.error(error);
+        });
     }
   }
 }

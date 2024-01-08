@@ -32,7 +32,7 @@ export const prisma = new PrismaClient();
 
 const editChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('ボイスチャンネルの設定を変更しました')
+  .setTitle('カスタムVCの設定を変更しました')
   .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
 
 const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
@@ -67,6 +67,11 @@ changePeopleLimitedModal.addComponents(changePeopleLimitedRow);
 const changeBitRateRow: ActionRowBuilder<TextInputBuilder> =
   new ActionRowBuilder<TextInputBuilder>().addComponents(changeBitRateInput);
 changeBitRateModal.addComponents(changeBitRateRow);
+
+const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
+  .setTitle('カスタムVCが解散しました')
+  .setDescription('人がいなくなったため、VCが誰でも使えるようになりました');
 
 /**
  * VCコントローラーで用いるインタラクションの型
@@ -177,6 +182,13 @@ export async function resetChannelDetails(
     userLimit: 0,
     bitrate: 64000,
     permissionOverwrites: [],
+  });
+
+  // -----------------------------------------------------------------------------------------------------------
+  // 解散メッセージを送信する
+  // -----------------------------------------------------------------------------------------------------------
+  await channel.send({
+    embeds: [freeChannelEmbed],
   });
 }
 
