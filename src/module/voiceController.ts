@@ -12,6 +12,7 @@ import {
   Message,
   User,
   APIEmbedField,
+  ButtonInteraction,
 } from 'discord.js';
 import { config } from '../utils/config.js';
 import { PrismaClient } from '@prisma/client';
@@ -21,6 +22,7 @@ import {
   createChannelEmbed,
   denyUserPermisson,
   operationMenu,
+  showBlackListButton,
   userBlackListMenu,
   userBlackReleaseListMenu,
 } from '../module/voiceCreateData.js';
@@ -34,6 +36,16 @@ const editChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('カスタムVCの設定を変更しました')
   .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
+const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
+  .setTitle('カスタムVCが解散しました')
+  .setDescription('人がいなくなったため、VCが誰でも使えるようになりました');
+const showBlackListEmbed: EmbedBuilder = new EmbedBuilder()
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
+  .setTitle('ブロックしているユーザー')
+  .setDescription(
+    'ブロック/ブロック解除を行いたい場合、下のメニューから設定を行ってください。',
+  );
 
 const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
   .setCustomId('changePeopleLimitedModal')
@@ -68,18 +80,14 @@ const changeBitRateRow: ActionRowBuilder<TextInputBuilder> =
   new ActionRowBuilder<TextInputBuilder>().addComponents(changeBitRateInput);
 changeBitRateModal.addComponents(changeBitRateRow);
 
-const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('カスタムVCが解散しました')
-  .setDescription('人がいなくなったため、VCが誰でも使えるようになりました');
-
 /**
  * VCコントローラーで用いるインタラクションの型
  */
 export type MenuInteraction =
   | StringSelectMenuInteraction
   | UserSelectMenuInteraction
-  | ModalSubmitInteraction;
+  | ModalSubmitInteraction
+  | ButtonInteraction;
 
 /**
  * チャンネルの設定を更新するための処理
@@ -105,12 +113,6 @@ export async function setChannelDetails(
     channelUserLimit === 0 ? '無制限' : `${channelUserLimit}人`;
   const channelBitRate = Number(channel.bitrate) / 1000;
 
-  // ブロックしているユーザーリストの文字列を作成
-  const blockUserList: string =
-    allUsers.length > 0
-      ? allUsers.map((user) => `<@${user.block_user_id}>`).join('\n')
-      : 'なし';
-
   // -----------------------------------------------------------------------------------------------------------
   // チャンネルの設定メッセージを更新する処理
   // -----------------------------------------------------------------------------------------------------------
@@ -119,7 +121,6 @@ export async function setChannelDetails(
       name: '現在の設定',
       value: `ユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
     },
-    { name: 'ブロックしているユーザー', value: blockUserList },
   ];
   if (message) {
     await message.edit({
@@ -129,7 +130,12 @@ export async function setChannelDetails(
     await channel.send({
       content: `<@${ownerUser.id}>`,
       embeds: [createChannelEmbed.setFields(...embedFields)],
-      components: [userBlackListMenu, userBlackReleaseListMenu, operationMenu],
+      components: [
+        userBlackListMenu,
+        userBlackReleaseListMenu,
+        showBlackListButton,
+        operationMenu,
+      ],
     });
   }
 
@@ -190,6 +196,38 @@ export async function resetChannelDetails(
   // -----------------------------------------------------------------------------------------------------------
   await channel.send({
     embeds: [freeChannelEmbed],
+  });
+}
+
+/**
+ * ブロックしているユーザーを確認
+ * @param interaction インタラクション
+ */
+export async function showBlackList(
+  interaction: MenuInteraction,
+): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+  const allUsers = await prisma.blackLists.findMany({
+    where: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      user_id: String(interaction.user.id),
+    },
+  });
+
+  // ブロックしているユーザーリストの文字列を作成
+  const blockUserList: string =
+    allUsers.length > 0
+      ? allUsers.map((user) => `<@${user.block_user_id}>`).join('\n')
+      : 'なし';
+
+  // リプライを送信
+  const embedFields: APIEmbedField[] = [
+    { name: 'ブロックしているユーザー', value: blockUserList },
+  ];
+
+  // メッセージを送信
+  await interaction.editReply({
+    embeds: [showBlackListEmbed.setFields(...embedFields)],
   });
 }
 

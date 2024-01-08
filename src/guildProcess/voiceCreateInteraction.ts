@@ -2,7 +2,6 @@ import {
   Interaction,
   PermissionsBitField,
   ChannelType,
-  TextBasedChannel,
   VoiceChannel,
 } from 'discord.js';
 import {
@@ -10,6 +9,7 @@ import {
   onOperationMenu,
   prisma,
   setChannelDetails,
+  showBlackList,
 } from '../module/voiceController.js';
 
 /**
@@ -23,7 +23,8 @@ export async function onVoiceCreateInteraction(
     if (
       !interaction.isStringSelectMenu() &&
       !interaction.isModalSubmit() &&
-      !interaction.isUserSelectMenu()
+      !interaction.isUserSelectMenu() &&
+      !interaction.isButton()
     )
       return;
 
@@ -153,7 +154,15 @@ export async function onVoiceCreateInteraction(
           await updateChannelDetails(interaction);
 
           // リプライを送信
-          let replyMessage = `選択した${selectedMemberNum}人のユーザーのブロックが完了しました。\n`;
+          const blockedUserNum =
+            selectedMemberNum -
+            privilegedUsers.length -
+            alreadyBlockedUsers.length;
+          let replyMessage = `選択した${selectedMemberNum}人${
+            selectedMemberNum === blockedUserNum
+              ? ''
+              : `の内${blockedUserNum}人`
+          }のユーザーのブロックが完了しました。\n`;
           if (privilegedUsers.length > 0) {
             const errorUsersString = privilegedUsers
               .map((userId) => `<@${userId}>`)
@@ -207,6 +216,17 @@ export async function onVoiceCreateInteraction(
           await interaction.editReply({
             content: '選択したユーザーのブロック解除が完了しました',
           });
+          break;
+        }
+
+        // -----------------------------------------------------------------------------------------------------------
+        // ブロックしているユーザーを確認する処理
+        // -----------------------------------------------------------------------------------------------------------
+        case 'showBlackList': {
+          if (!(await validatePermission(interaction))) return;
+          if (!interaction.isButton()) return;
+
+          await showBlackList(interaction);
           break;
         }
       }

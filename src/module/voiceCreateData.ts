@@ -1,5 +1,7 @@
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   EmbedBuilder,
   PermissionsBitField,
   StringSelectMenuBuilder,
@@ -47,6 +49,17 @@ export const userBlackReleaseListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
       .setPlaceholder('ブロックを解除するユーザーを選択')
       .setMaxValues(10)
       .setMinValues(1),
+  );
+
+/**
+ * ブロックしているユーザーを確認するためのボタン
+ */
+export const showBlackListButton: ActionRowBuilder<ButtonBuilder> =
+  new ActionRowBuilder<ButtonBuilder>().setComponents(
+    new ButtonBuilder()
+      .setCustomId('showBlackList')
+      .setLabel('ブロックユーザー確認')
+      .setStyle(ButtonStyle.Success),
   );
 
 /**
