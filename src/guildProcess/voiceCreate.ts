@@ -35,10 +35,9 @@ export async function onVoiceStateUpdate(
       // 初めてVCに入った場合、入った人をオーナーにしてチャンネルを初期化する処理
       // -----------------------------------------------------------------------------------------------------------
       // チャンネルの詳細を設定
-      await setChannelDetails(member.user, newState.channel)
-        .catch((error) => {
-          logger.error(error);
-        });
+      await setChannelDetails(member.user, newState.channel).catch((error) => {
+        logger.error(error);
+      });
     }
   }
 
@@ -48,16 +47,15 @@ export async function onVoiceStateUpdate(
   if (
     oldState.channelId !== newState.channelId &&
     oldState.channelId &&
-    !customVcChannelIdList.includes(oldState.channelId)
+    customVcChannelIdList.includes(oldState.channelId)
   ) {
     if (!oldState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
     if (oldState.channel.members.size === 0) {
       // チャンネルの詳細をリセット
-      await resetChannelDetails(oldState.channel)
-        .catch((error) => {
-          logger.error(error);
-        });
+      await resetChannelDetails(oldState.channel).catch((error) => {
+        logger.error(error);
+      });
     }
   }
 }
