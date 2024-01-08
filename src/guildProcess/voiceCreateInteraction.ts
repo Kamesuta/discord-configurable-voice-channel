@@ -1,4 +1,10 @@
-import { Interaction, PermissionsBitField, ChannelType } from 'discord.js';
+import {
+  Interaction,
+  PermissionsBitField,
+  ChannelType,
+  TextBasedChannel,
+  VoiceChannel,
+} from 'discord.js';
 import {
   MenuInteraction,
   onOperationMenu,
@@ -108,7 +114,6 @@ export async function onVoiceCreateInteraction(
 
           await interaction.deferReply({ ephemeral: true });
           const userId: string = String(interaction.user.id);
-          const errorUsers: string[] = [];
           const selectedMemberNum = interaction.values.length;
           // チャンネルがボイスチャンネルかどうか確認
           const allUsers = await prisma.blackLists.findMany({
@@ -117,6 +122,10 @@ export async function onVoiceCreateInteraction(
               user_id: String(interaction.user.id),
             },
           });
+
+          // ブロック処理
+          const alreadyBlockedUsers: string[] = [];
+          const privilegedUsers: string[] = [];
           for (let i = 0; i < selectedMemberNum; i++) {
             const blockUserId: string = String(interaction.values[i]);
             // Prismaを使ってBlackListsテーブルにレコードを作成
@@ -125,7 +134,11 @@ export async function onVoiceCreateInteraction(
                 (user) => String(user.block_user_id) === blockUserId,
               )
             ) {
-              errorUsers.push(blockUserId);
+              alreadyBlockedUsers.push(blockUserId);
+            } else if (
+              await validatePrivilegedUser(interaction, channel, blockUserId)
+            ) {
+              privilegedUsers.push(blockUserId);
             } else {
               await prisma.blackLists.create({
                 data: {
@@ -138,20 +151,24 @@ export async function onVoiceCreateInteraction(
             }
           }
           await updateChannelDetails(interaction);
-          if (errorUsers.length > 0) {
-            const errorUsersString = errorUsers
+
+          // リプライを送信
+          let replyMessage = `選択した${selectedMemberNum}人のユーザーのブロックが完了しました。\n`;
+          if (privilegedUsers.length > 0) {
+            const errorUsersString = privilegedUsers
               .map((userId) => `<@${userId}>`)
               .join(', ');
-            await interaction.editReply({
-              content: `選択した${
-                selectedMemberNum - errorUsers.length
-              }人のユーザーのブロックが完了しました。 ${errorUsersString} は既にブロックされているためブロックできませんでした`,
-            });
-          } else {
-            await interaction.editReply({
-              content: `選択した${selectedMemberNum}人のユーザーのブロックが完了しました`,
-            });
+            replyMessage += `${errorUsersString} はブロックできませんでした。\n`;
           }
+          if (alreadyBlockedUsers.length > 0) {
+            const errorUsersString = alreadyBlockedUsers
+              .map((userId) => `<@${userId}>`)
+              .join(', ');
+            replyMessage += `${errorUsersString} は既にブロックされているためブロックできませんでした。\n`;
+          }
+          await interaction.editReply({
+            content: replyMessage,
+          });
           break;
         }
 
@@ -209,7 +226,7 @@ async function validatePermission(
 ): Promise<boolean> {
   if (
     !interaction.memberPermissions?.has(
-      PermissionsBitField.Flags.ManageChannels,
+      PermissionsBitField.Flags.PrioritySpeaker,
     )
   ) {
     await interaction.reply({
@@ -219,6 +236,31 @@ async function validatePermission(
     return false;
   }
   return true;
+}
+
+/**
+ * ブロックするユーザーの特権チェックを行う。
+ * @param interaction インタラクション
+ * @param channel チャンネル
+ * @param blockUserId ブロックするユーザーのID
+ * @returns 特権があればtrue、なければfalse
+ */
+async function validatePrivilegedUser(
+  interaction: MenuInteraction,
+  channel: VoiceChannel,
+  blockUserId: string,
+): Promise<boolean> {
+  // 自身のIDを取得
+  const userId: string = String(interaction.user.id);
+  // メンバーを取得
+  const member = await interaction.guild?.members.fetch(blockUserId);
+  // ブロックするユーザーが自分自身か、ブロックするユーザーがVC移動権限を持っているか確認
+  return (
+    blockUserId === userId ||
+    member
+      ?.permissionsIn(channel)
+      .has(PermissionsBitField.Flags.MoveMembers) === true
+  );
 }
 
 /**

@@ -89,10 +89,7 @@ export const allowUserPermisson: bigint[] = [
  * ボイスチャンネルを作成したユーザーの追加管理権限
  */
 export const allowCreateUserPermisson: bigint[] = [
-  PermissionsBitField.Flags.MuteMembers, // メンバーをミュート
-  PermissionsBitField.Flags.DeafenMembers, // メンバーをスピーカーミュート
-  PermissionsBitField.Flags.ManageMessages, // メッセージの管理
-  PermissionsBitField.Flags.ManageChannels, // チャンネルの管理
+  PermissionsBitField.Flags.PrioritySpeaker, // 優先スピーカー
 ];
 
 /**
