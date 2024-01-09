@@ -60,3 +60,8 @@
 |----------------|----------------|----------------|
 |`botColor`|Botのメッセージの色|Embedの色に使用されます|
 |`customVcChannelIdList`|カスタムVCチャンネルのIDのリスト| |
+
+## クレジット
+
+このBotは、[@NekosanQ](https://github.com/NekosanQ)さんに許可を頂いて[猫桜 心音ボット](https://github.com/NekosanQ/DiscordBOT-Kokone)のコードをベースに使用させてもらいました。  
+素敵なBotをありがとうございます！
