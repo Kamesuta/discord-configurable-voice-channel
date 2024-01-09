@@ -1,7 +1,5 @@
 # ボットの色
 botColor = "#b9d98b"
-# エラーの色
-errorColor = "#f06060"
 # カスタムVCのチャンネルIDリスト
 customVcChannelIdList = [
   "000000000000000000",

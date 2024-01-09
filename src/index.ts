@@ -26,4 +26,4 @@ client.on(Events.InteractionCreate, onVoiceCreateInteraction);
 client.on(Events.VoiceStateUpdate, onVoiceStateUpdate);
 
 // Discordにログインする
-await client.login(process.env.KokoneToken);
+await client.login(process.env.DISCORD_TOKEN);

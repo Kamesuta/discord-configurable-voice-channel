@@ -1,5 +1,5 @@
 {
-  "name": "configurable-voice-channel",
+  "name": "discord-configurable-voice-channel",
   "version": "1.0.0",
   "description": "Discord用のカスタムVCBot。入れる人を制限できる。",
   "main": "dist/index.js",
@@ -12,10 +12,7 @@
     "lint": "tsc --noEmit && eslint --cache --fix",
     "prettier": "prettier --write",
     "lint-staged": "lint-staged",
-    "prepare": "husky install",
-    "pm2:start": "pm2 start dist/index.js --name Kokone --namespace DiscordBOT",
-    "pm2:restart": "pm2 restart Kokone",
-    "pm2:stop": "pm2 stop Kokone"
+    "prepare": "husky install"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
@@ -42,7 +39,6 @@
     "dotenv": "^16.3.1",
     "log4js": "^6.9.1",
     "node-cron": "^3.0.3",
-    "pm2": "^5.3.0",
     "toml": "^3.0.0"
   }
 }

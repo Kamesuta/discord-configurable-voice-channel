@@ -14,10 +14,6 @@ export interface Config {
    */
   botColor: string;
   /**
-   * エラーの色
-   */
-  errorColor: string;
-  /**
    * カスタムVCのチャンネルIDリスト
    */
   customVcChannelIdList: string[];
@@ -49,12 +45,6 @@ assert(
     typeof config.botColor === 'string' &&
     /^#[0-9A-F]{6}$/i.test(config.botColor),
   'botColor is invalid.',
-);
-assert(
-  config.errorColor &&
-    typeof config.errorColor === 'string' &&
-    /^#[0-9A-F]{6}$/i.test(config.botColor),
-  'errorColor is invalid.',
 );
 assert(
   config.customVcChannelIdList &&
