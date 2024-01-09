@@ -42,10 +42,7 @@ const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setDescription('人がいなくなったため、VCが誰でも使えるようになりました');
 const showBlackListEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('ブロックしているユーザー')
-  .setDescription(
-    'ブロック/ブロック解除を行いたい場合、下のメニューから設定を行ってください。',
-  );
+  .setTitle('ブロックしているユーザー');
 
 const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
   .setCustomId('changePeopleLimitedModal')
@@ -224,13 +221,8 @@ export async function showBlackList(
       : 'なし';
 
   // リプライを送信
-  const embedFields: APIEmbedField[] = [
-    { name: 'ブロックしているユーザー', value: blockUserList },
-  ];
-
-  // メッセージを送信
   await interaction.editReply({
-    embeds: [showBlackListEmbed.setFields(...embedFields)],
+    embeds: [showBlackListEmbed.setDescription(blockUserList)],
   });
 }
 
