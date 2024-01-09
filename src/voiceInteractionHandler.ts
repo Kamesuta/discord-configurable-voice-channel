@@ -10,7 +10,7 @@ import {
   prisma,
   setChannelDetails,
   showBlackList,
-} from '../module/voiceController.js';
+} from './voiceController.js';
 
 /**
  * ボイスチャンネル作成のインタラクション処理

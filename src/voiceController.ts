@@ -13,40 +13,138 @@ import {
   User,
   APIEmbedField,
   ButtonInteraction,
+  UserSelectMenuBuilder,
+  ButtonBuilder,
+  StringSelectMenuBuilder,
+  PermissionsBitField,
+  ButtonStyle,
 } from 'discord.js';
-import { config } from '../utils/config.js';
+import { config } from './utils/config.js';
 import { PrismaClient } from '@prisma/client';
-import {
-  allowCreateUserPermisson,
-  allowUserPermisson,
-  createChannelEmbed,
-  denyUserPermisson,
-  operationMenu,
-  showBlackListButton,
-  userBlackListMenu,
-  userBlackReleaseListMenu,
-} from '../module/voiceCreateData.js';
 
 /**
  * データベースのインスタンス
  */
 export const prisma = new PrismaClient();
 
+/**
+ * ボイスチャンネルを作成時に送る埋め込みメッセージ
+ */
+const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
+  .setTitle('カスタムVCを作成しました。')
+  .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
+
+/**
+ * ブロックするユーザーを選択するためのセレクトメニュー
+ */
+const userBlackListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
+  new ActionRowBuilder<UserSelectMenuBuilder>().setComponents(
+    new UserSelectMenuBuilder()
+      .setCustomId('userBlackList')
+      .setPlaceholder('ブロックするユーザーを選択')
+      .setMaxValues(10)
+      .setMinValues(1),
+  );
+
+/**
+ * ブロックしているユーザーを解除選択するためのセレクトメニュー
+ */
+const userBlackReleaseListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
+  new ActionRowBuilder<UserSelectMenuBuilder>().setComponents(
+    new UserSelectMenuBuilder()
+      .setCustomId('userBlackReleaseList')
+      .setPlaceholder('ブロックを解除するユーザーを選択')
+      .setMaxValues(10)
+      .setMinValues(1),
+  );
+
+/**
+ * ブロックしているユーザーを確認するためのボタン
+ */
+const showBlackListButton: ActionRowBuilder<ButtonBuilder> =
+  new ActionRowBuilder<ButtonBuilder>().setComponents(
+    new ButtonBuilder()
+      .setCustomId('showBlackList')
+      .setLabel('ブロックユーザー確認')
+      .setStyle(ButtonStyle.Success),
+  );
+
+/**
+ * 設定を選択するためのセレクトメニュー
+ */
+const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
+  new ActionRowBuilder<StringSelectMenuBuilder>().setComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('operationMenu')
+      .setPlaceholder('チャンネルの設定')
+      .setMaxValues(1)
+      .setMinValues(1)
+      .addOptions(
+        {
+          label: '人数制限',
+          description: '人数制限の人数を変更できます(0~99)',
+          value: 'peopleLimited_change',
+        },
+        {
+          label: 'ビットレート',
+          description: 'ビットレート(音質)を変更できます(8~384)',
+          value: 'bitrate_change',
+        },
+      ),
+  );
+
+/**
+ * ボイスチャンネルを使用するユーザーの権限
+ */
+const allowUserPermisson: bigint[] = [
+  PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
+];
+
+/**
+ * ボイスチャンネルを作成したユーザーの追加管理権限
+ */
+const allowCreateUserPermisson: bigint[] = [
+  PermissionsBitField.Flags.PrioritySpeaker, // 優先スピーカー
+];
+
+/**
+ * ボイスチャンネルを使用させなくさせるための権限
+ */
+const denyUserPermisson: bigint[] = [
+  PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
+];
+
+/**
+ * チャンネルの設定を更新する際の埋め込みメッセージ
+ */
 const editChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('カスタムVCの設定を変更しました')
   .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
+/**
+ * チャンネルが解散した際の埋め込みメッセージ
+ */
 const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('カスタムVCが解散しました')
   .setDescription('人がいなくなったため、VCが誰でも使えるようになりました');
+/**
+ * ブロックしているユーザーを表示する際の埋め込みメッセージ
+ */
 const showBlackListEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('ブロックしているユーザー');
 
+/**
+ * 人数制限の変更を行う際のモーダル
+ */
 const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
   .setCustomId('changePeopleLimitedModal')
   .setTitle('人数制限の変更');
+/**
+ * 人数制限の変更を行う際のテキストボックス
+ */
 const changePeopleLimitedInput: TextInputBuilder = new TextInputBuilder()
   .setMaxLength(2)
   .setMinLength(1)
@@ -54,11 +152,22 @@ const changePeopleLimitedInput: TextInputBuilder = new TextInputBuilder()
   .setLabel('変更する人数を入力してください')
   .setPlaceholder('0~99人までです(0人の場合は無制限になります)')
   .setStyle(TextInputStyle.Short);
+// モーダルにコンポーネントを追加
+changePeopleLimitedModal.addComponents(
+  new ActionRowBuilder<TextInputBuilder>().addComponents(
+    changePeopleLimitedInput,
+  ),
+);
 
+/**
+ * ビットレートの変更を行う際のモーダル
+ */
 const changeBitRateModal: ModalBuilder = new ModalBuilder()
   .setCustomId('changeBitRateModal')
   .setTitle('ビットレートの変更');
-
+/**
+ * ビットレートの変更を行う際のテキストボックス
+ */
 const changeBitRateInput: TextInputBuilder = new TextInputBuilder()
   .setMaxLength(3)
   .setMinLength(1)
@@ -66,16 +175,10 @@ const changeBitRateInput: TextInputBuilder = new TextInputBuilder()
   .setLabel('変更するビットレート数を入力してください')
   .setPlaceholder('8~384Kbpsまでです(64kbps以下は非推奨です)')
   .setStyle(TextInputStyle.Short);
-
-const changePeopleLimitedRow: ActionRowBuilder<TextInputBuilder> =
-  new ActionRowBuilder<TextInputBuilder>().addComponents(
-    changePeopleLimitedInput,
-  );
-changePeopleLimitedModal.addComponents(changePeopleLimitedRow);
-
-const changeBitRateRow: ActionRowBuilder<TextInputBuilder> =
-  new ActionRowBuilder<TextInputBuilder>().addComponents(changeBitRateInput);
-changeBitRateModal.addComponents(changeBitRateRow);
+// モーダルにコンポーネントを追加
+changeBitRateModal.addComponents(
+  new ActionRowBuilder<TextInputBuilder>().addComponents(changeBitRateInput),
+);
 
 /**
  * VCコントローラーで用いるインタラクションの型

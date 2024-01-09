@@ -1,10 +1,7 @@
 import { VoiceState } from 'discord.js';
-import { customVcChannelIdList } from '../module/voiceCreateData.js';
-import { logger } from '../utils/log.js';
-import {
-  resetChannelDetails,
-  setChannelDetails,
-} from '../module/voiceController.js';
+import { logger } from './utils/log.js';
+import { resetChannelDetails, setChannelDetails } from './voiceController.js';
+import { config } from './utils/config.js';
 
 /**
  * ボイスチャンネル作成機能
@@ -26,7 +23,7 @@ export async function onVoiceStateUpdate(
   if (
     oldState.channelId !== newState.channelId &&
     newState.channelId &&
-    customVcChannelIdList.includes(newState.channelId)
+    config.customVcChannelIdList.includes(newState.channelId)
   ) {
     if (!newState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
@@ -47,7 +44,7 @@ export async function onVoiceStateUpdate(
   if (
     oldState.channelId !== newState.channelId &&
     oldState.channelId &&
-    customVcChannelIdList.includes(oldState.channelId)
+    config.customVcChannelIdList.includes(oldState.channelId)
   ) {
     if (!oldState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
