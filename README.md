@@ -63,5 +63,6 @@
 
 ## クレジット
 
-このBotは、[@NekosanQ](https://github.com/NekosanQ)さんに許可を頂いて[猫桜 心音ボット](https://github.com/NekosanQ/DiscordBOT-Kokone)のコードをベースに使用させてもらいました。  
+このBotは、[@NekosanQ](https://github.com/NekosanQ)さんに許可を頂いて[猫桜 心音ボット](https://github.com/NekosanQ/DiscordBOT-Kokone)のコードをベースに使用させてもらいました。
+また、MITライセンスで公開する許可をいただきました。
 素敵なBotをありがとうございます！
