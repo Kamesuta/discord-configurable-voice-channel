@@ -140,7 +140,9 @@ export async function setChannelDetails(
   }
 
   // チャンネル権限オーバーライド
+  const inherit = channel.parent?.permissionOverwrites.cache.values() ?? [];
   const overwrites: OverwriteResolvable[] = [
+    ...inherit,
     {
       id: ownerUser,
       allow: [allowUserPermisson, allowCreateUserPermisson],
@@ -185,10 +187,11 @@ export async function resetChannelDetails(
   // -----------------------------------------------------------------------------------------------------------
   // チャンネルの権限をリセットする
   // -----------------------------------------------------------------------------------------------------------
+  const inherit = channel.parent?.permissionOverwrites.cache.values() ?? [];
   await channel.edit({
     userLimit: 0,
     bitrate: 64000,
-    permissionOverwrites: [],
+    permissionOverwrites: [...inherit],
   });
 
   // -----------------------------------------------------------------------------------------------------------
