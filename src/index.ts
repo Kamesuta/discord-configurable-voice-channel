@@ -4,12 +4,16 @@ import dotenv from 'dotenv';
 import { onVoiceCreateInteraction } from './voiceInteractionHandler.js';
 import { onVoiceStateUpdate } from './voiceStateHandler.js';
 import { logger } from './utils/log.js';
+import { updateControlPanel } from './voiceController.js';
 
 // .envファイルを読み込む
 dotenv.config();
 
-// Botで使うGetwayIntents、partials
-const client: Client = new Client({
+/**
+ * Discord Client
+ */
+export const client: Client = new Client({
+  // Botで使うGetwayIntents、partials
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
@@ -25,8 +29,11 @@ const client: Client = new Client({
 // -----------------------------------------------------------------------------------------------------------
 client.on(Events.InteractionCreate, onVoiceCreateInteraction);
 client.on(Events.VoiceStateUpdate, onVoiceStateUpdate);
-client.on(Events.ClientReady, () => {
+client.on(Events.ClientReady, async () => {
   logger.info(`${client.user?.username ?? 'Unknown'} として起動しました!`);
+
+  // VC操作パネルのメッセージを投稿する
+  await updateControlPanel();
 });
 
 // Discordにログインする

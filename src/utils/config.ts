@@ -14,6 +14,15 @@ export interface Config {
    */
   botColor: string;
   /**
+   * VC操作パネルのチャンネルID
+   */
+  controlPanelChannelId: string;
+  /**
+   * VC操作パネルのメッセージID
+   * (空の場合初期投稿を行います。その後この設定を投稿されたメッセージIDに書き換え、Botを再起動してください)
+   */
+  controlPanelMessageId: string;
+  /**
    * カスタムVCのチャンネルIDリスト
    */
   customVcChannelIdList: string[];
@@ -47,8 +56,18 @@ assert(
   'botColor is invalid.',
 );
 assert(
+  config.controlPanelChannelId &&
+    typeof config.controlPanelChannelId === 'string',
+  'controlPanelChannelId is invalid.',
+);
+assert(
+  // 空文字を許容する (初期投稿を行うため)
+  typeof config.controlPanelMessageId === 'string',
+  'controlPanelMessageId is invalid.',
+);
+assert(
   config.customVcChannelIdList &&
-    typeof config.customVcChannelIdList === 'object' &&
-    typeof config.customVcChannelIdList[0] === 'string',
+    Array.isArray(config.customVcChannelIdList) &&
+    config.customVcChannelIdList.every((id) => typeof id === 'string'),
   'customVcChannelIdList is invalid.',
 );

@@ -9,7 +9,6 @@ import {
   UserSelectMenuInteraction,
   OverwriteResolvable,
   VoiceBasedChannel,
-  Message,
   User,
   APIEmbedField,
   ButtonInteraction,
@@ -21,6 +20,7 @@ import {
 } from 'discord.js';
 import { config } from './utils/config.js';
 import { PrismaClient } from '@prisma/client';
+import { client } from './index.js';
 
 /**
  * データベースのインスタンス
@@ -32,8 +32,10 @@ export const prisma = new PrismaClient();
  */
 const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('カスタムVCを作成しました。')
-  .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
+  .setTitle('カスタムVC操作パネル')
+  .setDescription(
+    '一番最初にVCに入った人(VCのオーナー)は、このパネルでVCの管理を行うことが出来ます。\n設定を行いたい場合、下のメニューから設定を行ってください。',
+  );
 
 /**
  * ブロックするユーザーを選択するためのセレクトメニュー
@@ -91,6 +93,11 @@ const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
           description: 'ビットレート(音質)を変更できます(8~384)',
           value: 'bitrate_change',
         },
+        {
+          label: 'VCの譲渡',
+          description: 'VCの管理権限を他の人に渡します',
+          value: 'owner_change',
+        },
       ),
   );
 
@@ -115,13 +122,6 @@ const denyUserPermisson: bigint[] = [
   PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
 ];
 
-/**
- * チャンネルの設定を更新する際の埋め込みメッセージ
- */
-const editChannelEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('カスタムVCの設定を変更しました')
-  .setDescription('設定を行いたい場合、下のメニューから設定を行ってください。');
 /**
  * チャンネルが解散した際の埋め込みメッセージ
  */
@@ -191,44 +191,64 @@ export type MenuInteraction =
 
 /**
  * チャンネルの設定を更新するための処理
- * @param ownerUser ユーザー
- * @param channel チャンネル
- * @param message メッセージ(ない場合は新規投稿)
  */
-export async function setChannelDetails(
-  ownerUser: User,
-  channel: VoiceBasedChannel,
-  message?: Message,
-): Promise<void> {
-  const allUsers = await prisma.blackLists.findMany({
-    where: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      user_id: String(ownerUser.id),
-    },
-  });
-
-  // チャンネルの設定
-  const channelUserLimit = channel.userLimit;
-  const channelUserLimitText =
-    channelUserLimit === 0 ? '無制限' : `${channelUserLimit}人`;
-  const channelBitRate = Number(channel.bitrate) / 1000;
+export async function updateControlPanel(): Promise<void> {
+  // -----------------------------------------------------------------------------------------------------------
+  // チャンネルを取得
+  // -----------------------------------------------------------------------------------------------------------
+  const panelChannel = client.channels.resolve(config.controlPanelChannelId);
+  if (!panelChannel?.isTextBased()) {
+    throw new Error('VC操作パネルを投稿するチャンネルが見つかりませんでした。');
+  }
+  const panelMessage = config.controlPanelMessageId
+    ? await panelChannel.messages.fetch(config.controlPanelMessageId)
+    : undefined;
 
   // -----------------------------------------------------------------------------------------------------------
-  // チャンネルの設定メッセージを更新する処理
+  // すべてのチャンネルの設定を取得する
   // -----------------------------------------------------------------------------------------------------------
-  const embedFields: APIEmbedField[] = [
-    {
-      name: '現在の設定',
-      value: `ユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
+  const embedFields: APIEmbedField[] = config.customVcChannelIdList.map(
+    (id) => {
+      // チャンネルをフェッチ
+      const channel = client.channels.resolve(id);
+      if (!channel?.isVoiceBased()) {
+        return {
+          name: `<#${id}>`,
+          value: 'チャンネルが見つかりませんでした',
+        };
+      }
+
+      // チャンネルの設定を取得
+      const channelUserLimit = channel.userLimit;
+      const channelUserLimitText =
+        channelUserLimit === 0 ? '無制限' : `${channelUserLimit}人`;
+      const channelBitRate = Number(channel.bitrate) / 1000;
+
+      // チャンネルのオーナーを取得
+      const ownerUsers = channel.permissionOverwrites.cache.filter(
+        // 優先スピーカー権限を持っているユーザーを取得
+        (permission) =>
+          permission.allow.has(PermissionsBitField.Flags.PrioritySpeaker),
+      );
+      const ownerUserText =
+        ownerUsers.size > 0 ? `<@${ownerUsers.first()?.id}>` : 'なし';
+
+      return {
+        name: `<#${id}>`,
+        value: `オーナー: ${ownerUserText}\nユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
+      };
     },
-  ];
-  if (message) {
-    await message.edit({
-      embeds: [editChannelEmbed.setFields(...embedFields)],
+  );
+
+  // -----------------------------------------------------------------------------------------------------------
+  // チャンネルの設定をパネルに反映する
+  // -----------------------------------------------------------------------------------------------------------
+  if (panelMessage) {
+    await panelMessage.edit({
+      embeds: [createChannelEmbed.setFields(...embedFields)],
     });
   } else {
-    await channel.send({
-      content: `<@${ownerUser.id}>`,
+    await panelChannel.send({
       embeds: [createChannelEmbed.setFields(...embedFields)],
       components: [
         userBlackListMenu,
@@ -238,68 +258,71 @@ export async function setChannelDetails(
       ],
     });
   }
-
-  // チャンネル権限オーバーライド
-  const inherit = channel.parent?.permissionOverwrites.cache.values() ?? [];
-  const overwrites: OverwriteResolvable[] = [
-    ...inherit,
-    {
-      id: ownerUser,
-      allow: [allowUserPermisson, allowCreateUserPermisson],
-    },
-  ];
-  // -----------------------------------------------------------------------------------------------------------
-  // ブロックしているユーザーがいた場合、チャンネルを表示しない
-  // -----------------------------------------------------------------------------------------------------------
-  for (const user of allUsers) {
-    // ユーザーをフェッチしないと内部でresolveに失敗してエラーが出る
-    const blockUser = await channel.client.users.fetch(user.block_user_id);
-    if (blockUser) {
-      overwrites.push({
-        id: blockUser,
-        deny: [denyUserPermisson],
-      });
-    }
-  }
-  // -----------------------------------------------------------------------------------------------------------
-  // チャンネルの権限をセットする
-  // -----------------------------------------------------------------------------------------------------------
-  await channel.permissionOverwrites.set(overwrites);
-
-  // -----------------------------------------------------------------------------------------------------------
-  // ブロックされたユーザーが既にVCにいる場合、VCから退出させる
-  // -----------------------------------------------------------------------------------------------------------
-  const blockedConnectedMembers = channel.members.filter((member) =>
-    allUsers.find((user) => member.id === user.block_user_id),
-  );
-  for (const [_, member] of blockedConnectedMembers) {
-    await member.voice.disconnect();
-  }
 }
 
 /**
- * チャンネルの設定を初期化する
+ * チャンネルの権限設定を更新する
  * @param channel チャンネル
+ * @param ownerUser ユーザー
  */
-export async function resetChannelDetails(
+export async function editChannelPermission(
   channel: VoiceBasedChannel,
+  ownerUser: User | undefined,
 ): Promise<void> {
-  // -----------------------------------------------------------------------------------------------------------
-  // チャンネルの権限をリセットする
-  // -----------------------------------------------------------------------------------------------------------
   const inherit = channel.parent?.permissionOverwrites.cache.values() ?? [];
-  await channel.edit({
-    userLimit: 0,
-    bitrate: 64000,
-    permissionOverwrites: [...inherit],
-  });
+  if (ownerUser) {
+    const allUsers = await prisma.blackLists.findMany({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        user_id: String(ownerUser.id),
+      },
+    });
 
-  // -----------------------------------------------------------------------------------------------------------
-  // 解散メッセージを送信する
-  // -----------------------------------------------------------------------------------------------------------
-  await channel.send({
-    embeds: [freeChannelEmbed],
-  });
+    // チャンネル権限オーバーライド
+    const overwrites: OverwriteResolvable[] = [
+      ...inherit,
+      {
+        id: ownerUser,
+        allow: [allowUserPermisson, allowCreateUserPermisson],
+      },
+    ];
+    // -----------------------------------------------------------------------------------------------------------
+    // ブロックしているユーザーがいた場合、チャンネルを表示しない
+    // -----------------------------------------------------------------------------------------------------------
+    for (const user of allUsers) {
+      // ユーザーをフェッチしないと内部でresolveに失敗してエラーが出る
+      const blockUser = await client.users.fetch(user.block_user_id);
+      if (blockUser) {
+        overwrites.push({
+          id: blockUser,
+          deny: [denyUserPermisson],
+        });
+      }
+    }
+    // -----------------------------------------------------------------------------------------------------------
+    // チャンネルの権限をセットする
+    // -----------------------------------------------------------------------------------------------------------
+    await channel.permissionOverwrites.set(overwrites);
+
+    // -----------------------------------------------------------------------------------------------------------
+    // ブロックされたユーザーが既にVCにいる場合、VCから退出させる
+    // -----------------------------------------------------------------------------------------------------------
+    const blockedConnectedMembers = channel.members.filter((member) =>
+      allUsers.find((user) => member.id === user.block_user_id),
+    );
+    for (const [_, member] of blockedConnectedMembers) {
+      await member.voice.disconnect();
+    }
+  } else {
+    // -----------------------------------------------------------------------------------------------------------
+    // チャンネルの権限をリセットする
+    // -----------------------------------------------------------------------------------------------------------
+    await channel.edit({
+      userLimit: 0,
+      bitrate: 64000,
+      permissionOverwrites: [...inherit],
+    });
+  }
 }
 
 /**

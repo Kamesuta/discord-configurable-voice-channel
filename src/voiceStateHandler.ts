@@ -1,6 +1,9 @@
 import { VoiceState } from 'discord.js';
 import { logger } from './utils/log.js';
-import { resetChannelDetails, setChannelDetails } from './voiceController.js';
+import {
+  editChannelPermission,
+  updateControlPanel,
+} from './voiceController.js';
 import { config } from './utils/config.js';
 
 /**
@@ -27,14 +30,17 @@ export async function onVoiceStateUpdate(
   ) {
     if (!newState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
-    if (newState.channel.members.size === 1) {
-      // -----------------------------------------------------------------------------------------------------------
-      // 初めてVCに入った場合、入った人をオーナーにしてチャンネルを初期化する処理
-      // -----------------------------------------------------------------------------------------------------------
-      // チャンネルの詳細を設定
-      await setChannelDetails(member.user, newState.channel).catch((error) => {
-        logger.error(error);
-      });
+    try {
+      if (newState.channel.members.size === 1) {
+        // -----------------------------------------------------------------------------------------------------------
+        // 初めてVCに入った場合、入った人をオーナーにしてチャンネルを初期化する処理
+        // -----------------------------------------------------------------------------------------------------------
+        // チャンネルの詳細を設定
+        await editChannelPermission(newState.channel, member.user);
+        await updateControlPanel();
+      }
+    } catch (error) {
+      logger.error(error);
     }
   }
 
@@ -48,11 +54,14 @@ export async function onVoiceStateUpdate(
   ) {
     if (!oldState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
-    if (oldState.channel.members.size === 0) {
-      // チャンネルの詳細をリセット
-      await resetChannelDetails(oldState.channel).catch((error) => {
-        logger.error(error);
-      });
+    try {
+      if (oldState.channel.members.size === 0) {
+        // チャンネルの詳細をリセット
+        await editChannelPermission(oldState.channel, undefined);
+        await updateControlPanel();
+      }
+    } catch (error) {
+      logger.error(error);
     }
   }
 }

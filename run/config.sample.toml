@@ -1,5 +1,10 @@
 # ボットの色
 botColor = "#b9d98b"
+# VC操作パネルのチャンネルID
+controlPanelChannelId = "000000000000000000"
+# VC操作パネルのメッセージID
+# (空の場合初期投稿を行います。その後この設定を投稿されたメッセージIDに書き換え、Botを再起動してください)
+controlPanelMessageId = ""
 # カスタムVCのチャンネルIDリスト
 customVcChannelIdList = [
   "000000000000000000",
