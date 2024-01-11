@@ -42,7 +42,7 @@ export async function onVoiceCreateInteraction(
         if (!channel) return;
 
         // メニューの操作に応じて処理を分岐
-        const operationPage = interaction.values[0].split('_')[0];
+        const operationPage = interaction.values[0];
         await onOperationMenu(interaction, operationPage);
         break;
       }

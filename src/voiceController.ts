@@ -48,7 +48,6 @@ const userBlackListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
       .setMaxValues(10)
       .setMinValues(1),
   );
-
 /**
  * ブロックしているユーザーを解除選択するためのセレクトメニュー
  */
@@ -60,7 +59,6 @@ const userBlackReleaseListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
       .setMaxValues(10)
       .setMinValues(1),
   );
-
 /**
  * ブロックしているユーザーを確認するためのボタン
  */
@@ -336,8 +334,10 @@ export async function onOperationMenu(
   operationPage: string,
 ): Promise<void> {
   switch (operationPage) {
-    case 'peopleLimited': // 人数制限
+    case 'peopleLimited_change': {
+      // 人数制限
       await interaction.showModal(changePeopleLimitedModal);
       break;
+    }
   }
 }
