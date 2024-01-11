@@ -10,6 +10,7 @@ import {
   onOperationMenu,
   prisma,
   showBlackList,
+  transferedOwnershipEmbed,
   updateControlPanel,
 } from './voiceController.js';
 import { config } from './utils/config.js';
@@ -39,15 +40,16 @@ export async function onVoiceCreateInteraction(
         if (!interaction.isStringSelectMenu()) return;
 
         // 入っているVCのチャンネルを取得し、権限チェックを行う
-        const channel = await getConnectedEditableChannel(interaction).catch(
-          async (error: Error) => {
-            // エラーが発生した場合、エラーメッセージを返信して処理を終了
-            await interaction.reply({
-              content: error.message,
-              ephemeral: true,
-            });
-          },
-        );
+        const channel = await getConnectedEditableChannel(
+          interaction,
+          true,
+        ).catch(async (error: Error) => {
+          // エラーが発生した場合、エラーメッセージを返信して処理を終了
+          await interaction.reply({
+            content: error.message,
+            ephemeral: true,
+          });
+        });
         if (!channel) return;
 
         // メニューの操作に応じて処理を分岐
@@ -123,7 +125,7 @@ export async function onVoiceCreateInteraction(
         // 譲渡先がBotでないか確認
         if (newOwner.user.bot) {
           await interaction.reply({
-            content: 'Botには譲渡できません',
+            content: 'Botをオーナーにすることはできません',
             ephemeral: true,
           });
           return;
@@ -156,9 +158,15 @@ export async function onVoiceCreateInteraction(
         await editChannelPermission(channel, newOwner.user);
         await updateControlPanel();
 
+        // メッセージを投稿
+        await channel.send({
+          content: `<@${newOwner.id}>`,
+          embeds: [transferedOwnershipEmbed(newOwner.user)],
+        });
+
         // リプライを送信
         await interaction.editReply({
-          content: `<@${newOwner.id}> にチャンネルのオーナーを譲渡しました`,
+          content: `<@${newOwner.id}> にVCのオーナーを譲渡しました`,
         });
 
         break;

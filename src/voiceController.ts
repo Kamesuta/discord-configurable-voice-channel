@@ -32,7 +32,7 @@ export const prisma = new PrismaClient();
 /**
  * ボイスチャンネルを作成時に送る埋め込みメッセージ
  */
-const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
+const controlPannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('カスタムVC操作パネル')
   .setDescription(
@@ -89,7 +89,7 @@ const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
           value: 'peopleLimited_change',
         },
         {
-          label: 'VCの譲渡',
+          label: 'VCのオーナーの変更',
           description: 'VCの管理権限を他の人に渡します',
           value: 'owner_change',
         },
@@ -118,12 +118,46 @@ const denyUserPermisson: bigint[] = [
 ];
 
 /**
+ * チャンネルに初めて入った際の埋め込みメッセージ
+ */
+export const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
+  .setTitle('VCへようこそ！')
+  .setDescription(
+    `あなたがVCに入った最初の人です！\n<#${config.controlPanelChannelId}>でVCの人数制限やメンバーのブロック設定が行なえます！`,
+  );
+/**
+ * チャンネルオーナーがいなくなった際の埋め込みメッセージ
+ * @param user 退出したユーザー
+ * @returns 埋め込みメッセージ
+ */
+export const noChannelOwnerEmbed = (user: User): EmbedBuilder =>
+  new EmbedBuilder()
+    .setColor(parseInt(config.botColor.replace('#', ''), 16))
+    .setTitle('VCのオーナーが退出しました')
+    .setDescription(
+      `<@${user.id}>が退出したため、新しいオーナーを選出できます。\n新しいオーナーを設定するためには<#${config.controlPanelChannelId}>の「チャンネル設定」から「VCの譲渡」を選択してください。`,
+    );
+/**
  * チャンネルが解散した際の埋め込みメッセージ
  */
-const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
+export const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('カスタムVCが解散しました')
   .setDescription('人がいなくなったため、VCが誰でも使えるようになりました');
+/**
+ * VCを譲渡する際の埋め込みメッセージ
+ * @param user 譲渡されたユーザー
+ * @returns 埋め込みメッセージ
+ */
+export const transferedOwnershipEmbed = (user: User): EmbedBuilder =>
+  new EmbedBuilder()
+    .setColor(parseInt(config.botColor.replace('#', ''), 16))
+    .setTitle('VCのオーナーが替わりました')
+    .setDescription(
+      `今後は<@${user.id}>が<#${config.controlPanelChannelId}>で人数制限やブロック設定を行うことが出来ます`,
+    );
+
 /**
  * ブロックしているユーザーを表示する際の埋め込みメッセージ
  */
@@ -155,11 +189,11 @@ changePeopleLimitedModal.addComponents(
 );
 
 /**
- * VCの譲渡を行う際のモーダル
+ * VCのオーナーの変更を行う際のモーダル
  */
 const transferOwnershipEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('VCの譲渡')
+  .setTitle('VCのオーナーの変更')
   .setDescription(
     '他の人にVCの管理権限を渡します\n設定を行いたい場合、下のメニューから設定を行ってください。',
   );
@@ -170,7 +204,7 @@ const transferOwnershipMenu: ActionRowBuilder<UserSelectMenuBuilder> =
   new ActionRowBuilder<UserSelectMenuBuilder>().setComponents(
     new UserSelectMenuBuilder()
       .setCustomId('transferOwnership')
-      .setPlaceholder('VCを譲渡するユーザーを選択')
+      .setPlaceholder('VCの管理権限を譲渡するユーザーを選択')
       .setMaxValues(1)
       .setMinValues(1),
   );
@@ -231,11 +265,11 @@ export async function updateControlPanel(): Promise<void> {
   // -----------------------------------------------------------------------------------------------------------
   if (panelMessage) {
     await panelMessage.edit({
-      embeds: [createChannelEmbed.setFields(...embedFields)],
+      embeds: [controlPannelEmbed.setFields(...embedFields)],
     });
   } else {
     await panelChannel.send({
-      embeds: [createChannelEmbed.setFields(...embedFields)],
+      embeds: [controlPannelEmbed.setFields(...embedFields)],
       components: [
         userBlackListMenu,
         userBlackReleaseListMenu,

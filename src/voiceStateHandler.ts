@@ -1,7 +1,11 @@
-import { VoiceState } from 'discord.js';
+import { PermissionsBitField, VoiceState } from 'discord.js';
 import { logger } from './utils/log.js';
 import {
+  createChannelEmbed,
   editChannelPermission,
+  freeChannelEmbed,
+  getChannelOwner,
+  noChannelOwnerEmbed,
   updateControlPanel,
 } from './voiceController.js';
 import { config } from './utils/config.js';
@@ -38,6 +42,12 @@ export async function onVoiceStateUpdate(
         // チャンネルの詳細を設定
         await editChannelPermission(newState.channel, member.user);
         await updateControlPanel();
+
+        // メッセージを投稿
+        await newState.channel.send({
+          content: `<@${member.id}>`,
+          embeds: [createChannelEmbed],
+        });
       }
     } catch (error) {
       logger.error(error);
@@ -59,6 +69,16 @@ export async function onVoiceStateUpdate(
         // チャンネルの詳細をリセット
         await editChannelPermission(oldState.channel, undefined);
         await updateControlPanel();
+
+        // メッセージを投稿
+        await oldState.channel.send({
+          embeds: [freeChannelEmbed],
+        });
+      } else if (getChannelOwner(oldState.channel) === member) {
+        // オーナーがいない場合はメッセージを投稿
+        await oldState.channel.send({
+          embeds: [noChannelOwnerEmbed(member.user)],
+        });
       }
     } catch (error) {
       logger.error(error);
