@@ -6,6 +6,7 @@ import {
 import {
   MenuInteraction,
   editChannelPermission,
+  getChannelOwner,
   onOperationMenu,
   prisma,
   showBlackList,
@@ -38,7 +39,15 @@ export async function onVoiceCreateInteraction(
         if (!interaction.isStringSelectMenu()) return;
 
         // 入っているVCのチャンネルを取得し、権限チェックを行う
-        const channel = await getConnectedEditableChannel(interaction);
+        const channel = await getConnectedEditableChannel(interaction).catch(
+          async (error: Error) => {
+            // エラーが発生した場合、エラーメッセージを返信して処理を終了
+            await interaction.reply({
+              content: error.message,
+              ephemeral: true,
+            });
+          },
+        );
         if (!channel) return;
 
         // メニューの操作に応じて処理を分岐
@@ -61,25 +70,37 @@ export async function onVoiceCreateInteraction(
             content: '数字を入れてください',
             ephemeral: true,
           });
-        } else if (channelUserLimit > 99) {
+          return;
+        }
+        if (channelUserLimit > 99) {
           await interaction.reply({
             content: '変更できる人数制限の値は0~99人までです',
             ephemeral: true,
           });
-        } else {
-          await interaction.deferReply({ ephemeral: true });
-
-          // 入っているVCのチャンネルを取得し、権限チェックを行う
-          const channel = await getConnectedEditableChannel(interaction);
-          if (!channel) return;
-
-          // チャンネルの人数制限を変更
-          await channel.setUserLimit(channelUserLimit);
-          await updateControlPanel();
-          await interaction.editReply({
-            content: `チャンネルの人数制限を${channelUserLimit}人に変更しました`,
-          });
+          return;
         }
+
+        // 入っているVCのチャンネルを取得し、権限チェックを行う
+        const channel = await getConnectedEditableChannel(interaction).catch(
+          async (error: Error) => {
+            // エラーが発生した場合、エラーメッセージを返信して処理を終了
+            await interaction.reply({
+              content: error.message,
+              ephemeral: true,
+            });
+          },
+        );
+        if (!channel) return;
+
+        await interaction.deferReply({ ephemeral: true });
+
+        // チャンネルの人数制限を変更
+        await channel.setUserLimit(channelUserLimit);
+        await updateControlPanel();
+        await interaction.editReply({
+          content: `チャンネルの人数制限を${channelUserLimit}人に変更しました`,
+        });
+
         break;
       }
 
@@ -89,6 +110,7 @@ export async function onVoiceCreateInteraction(
       case 'transferOwnership': {
         if (!interaction.isUserSelectMenu()) return;
 
+        // 譲渡先のユーザーを取得
         const newOwnerId: string = String(interaction.values[0]);
         const newOwner = await interaction.guild?.members.fetch(newOwnerId);
         if (!newOwner) {
@@ -96,22 +118,49 @@ export async function onVoiceCreateInteraction(
             content: 'ユーザーが見つかりませんでした',
             ephemeral: true,
           });
-        } else {
-          await interaction.deferReply({ ephemeral: true });
-
-          // 入っているVCのチャンネルを取得し、権限チェックを行う
-          const channel = await getConnectedEditableChannel(interaction);
-          if (!channel) return;
-
-          // チャンネルのオーナーを変更
-          await editChannelPermission(channel, newOwner.user);
-          await updateControlPanel();
-
-          // リプライを送信
-          await interaction.editReply({
-            content: `<@${newOwner.id}> にチャンネルのオーナーを譲渡しました`,
-          });
+          return;
         }
+        // 譲渡先がBotでないか確認
+        if (newOwner.user.bot) {
+          await interaction.reply({
+            content: 'Botには譲渡できません',
+            ephemeral: true,
+          });
+          return;
+        }
+
+        // 入っているVCのチャンネルを取得し、権限チェックを行う
+        const channel = await getConnectedEditableChannel(
+          interaction,
+          true,
+        ).catch(async (error: Error) => {
+          // エラーが発生した場合、エラーメッセージを返信して処理を終了
+          await interaction.reply({
+            content: error.message,
+            ephemeral: true,
+          });
+        });
+        if (!channel) return;
+
+        await interaction.deferReply({ ephemeral: true });
+
+        // 譲渡先のユーザーがVCに入っているか確認
+        if (newOwner.voice.channelId !== channel.id) {
+          await interaction.editReply({
+            content: '譲渡先のユーザーが同じVCに入っていません',
+          });
+          return;
+        }
+
+        // チャンネルのオーナーを変更
+        await editChannelPermission(channel, newOwner.user);
+        await updateControlPanel();
+
+        // リプライを送信
+        await interaction.editReply({
+          content: `<@${newOwner.id}> にチャンネルのオーナーを譲渡しました`,
+        });
+
         break;
       }
 
@@ -159,7 +208,7 @@ export async function onVoiceCreateInteraction(
         }
 
         // チャンネルの権限を更新
-        const channel = await getConnectedEditableChannel(interaction, false);
+        const channel = await getConnectedEditableChannel(interaction);
         if (channel) {
           await editChannelPermission(channel, interaction.user);
         }
@@ -224,7 +273,7 @@ export async function onVoiceCreateInteraction(
         }
 
         // チャンネルの権限を更新
-        const channel = await getConnectedEditableChannel(interaction, false);
+        const channel = await getConnectedEditableChannel(interaction);
         if (channel) {
           await editChannelPermission(channel, interaction.user);
         }
@@ -275,37 +324,31 @@ async function validatePrivilegedUser(
 /**
  * 入っている管理権限のあるVCのチャンネルを取得 (権限チェックも行う)
  * @param interaction インタラクション
- * @param showError エラーを表示するかどうか
+ * @param isTransferOwnership オーナー譲渡中かどうか (オーナー譲渡中はオーナーが居ない場合に権限チェックを行わない)
  * @returns チャンネル
  */
 async function getConnectedEditableChannel(
   interaction: MenuInteraction,
-  showError: boolean = true,
-): Promise<VoiceBasedChannel | undefined> {
+  isTransferOwnership: boolean = false,
+): Promise<VoiceBasedChannel> {
   // メンバーを取得
   const member = await interaction.guild?.members.fetch(interaction.user);
-  if (!member) return undefined;
+  if (!member) {
+    throw new Error('メンバーが見つかりませんでした');
+  }
   // 入っているVCのチャンネルを取得
   const channel = member.voice.channel;
   if (!channel) {
-    // VCに入っていない場合、リプライを送信して処理を終了
-    if (showError) {
-      await interaction.reply({
-        content: `VCに入っていないため、<#${interaction.channelId}>のパネルは使用できません。\nカスタムVCのチャンネルに入ってからもう一度実行してください`,
-        ephemeral: true,
-      });
-    }
-    return undefined;
+    // VCに入っていない場合、例外をthrowする
+    throw new Error(
+      `VCに入っていないため、<#${interaction.channelId}>のパネルは使用できません。\nカスタムVCのチャンネルに入ってからもう一度実行してください`,
+    );
   }
-  // カスタムVCのチャンネルでない場合、リプライを送信して処理を終了
+  // カスタムVCのチャンネルでない場合、例外をthrowする
   if (!config.customVcChannelIdList.includes(channel.id)) {
-    if (showError) {
-      await interaction.reply({
-        content: `カスタムVCのチャンネルでないため、<#${interaction.channelId}>のパネルは使用できません\nカスタムVCのチャンネルに入ってからもう一度実行してください`,
-        ephemeral: true,
-      });
-    }
-    return undefined;
+    throw new Error(
+      `カスタムVCのチャンネルでないため、<#${interaction.channelId}>のパネルは使用できません\nカスタムVCのチャンネルに入ってからもう一度実行してください`,
+    );
   }
   // チャンネルの権限を確認
   if (
@@ -313,13 +356,10 @@ async function getConnectedEditableChannel(
       .permissionsFor(interaction.user)
       ?.has(PermissionsBitField.Flags.PrioritySpeaker)
   ) {
-    if (showError) {
-      await interaction.reply({
-        content: 'あなたにはチャンネルの設定をする権限がありません',
-        ephemeral: true,
-      });
+    // オーナー譲渡中かつオーナーがいない場合は権限チェックを行わない
+    if (!isTransferOwnership || getChannelOwner(channel)) {
+      throw new Error('あなたにはチャンネルの設定をする権限がありません');
     }
-    return undefined;
   }
 
   return channel;
