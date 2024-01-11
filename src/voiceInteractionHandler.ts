@@ -84,6 +84,38 @@ export async function onVoiceCreateInteraction(
       }
 
       // -----------------------------------------------------------------------------------------------------------
+      // VCの譲渡
+      // -----------------------------------------------------------------------------------------------------------
+      case 'transferOwnership': {
+        if (!interaction.isUserSelectMenu()) return;
+
+        const newOwnerId: string = String(interaction.values[0]);
+        const newOwner = await interaction.guild?.members.fetch(newOwnerId);
+        if (!newOwner) {
+          await interaction.reply({
+            content: 'ユーザーが見つかりませんでした',
+            ephemeral: true,
+          });
+        } else {
+          await interaction.deferReply({ ephemeral: true });
+
+          // 入っているVCのチャンネルを取得し、権限チェックを行う
+          const channel = await getConnectedEditableChannel(interaction);
+          if (!channel) return;
+
+          // チャンネルのオーナーを変更
+          await editChannelPermission(channel, newOwner.user);
+          await updateControlPanel();
+
+          // リプライを送信
+          await interaction.editReply({
+            content: `<@${newOwner.id}> にチャンネルのオーナーを譲渡しました`,
+          });
+        }
+        break;
+      }
+
+      // -----------------------------------------------------------------------------------------------------------
       // ユーザーをブロックする処理
       // -----------------------------------------------------------------------------------------------------------
       case 'userBlackList': {
@@ -210,7 +242,7 @@ export async function onVoiceCreateInteraction(
       case 'showBlackList': {
         if (!interaction.isButton()) return;
 
-        await showBlackList(interaction);
+        await showBlackList(interaction, interaction.user);
         break;
       }
     }

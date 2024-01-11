@@ -17,6 +17,8 @@ import {
   StringSelectMenuBuilder,
   PermissionsBitField,
   ButtonStyle,
+  OverwriteType,
+  GuildMember,
 } from 'discord.js';
 import { config } from './utils/config.js';
 import { PrismaClient } from '@prisma/client';
@@ -153,6 +155,27 @@ changePeopleLimitedModal.addComponents(
 );
 
 /**
+ * VCの譲渡を行う際のモーダル
+ */
+const transferOwnershipEmbed: EmbedBuilder = new EmbedBuilder()
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
+  .setTitle('VCの譲渡')
+  .setDescription(
+    '他の人にVCの管理権限を渡します\n設定を行いたい場合、下のメニューから設定を行ってください。',
+  );
+/**
+ * 譲渡するユーザーを選択するためのセレクトメニュー
+ */
+const transferOwnershipMenu: ActionRowBuilder<UserSelectMenuBuilder> =
+  new ActionRowBuilder<UserSelectMenuBuilder>().setComponents(
+    new UserSelectMenuBuilder()
+      .setCustomId('transferOwnership')
+      .setPlaceholder('VCを譲渡するユーザーを選択')
+      .setMaxValues(1)
+      .setMinValues(1),
+  );
+
+/**
  * VCコントローラーで用いるインタラクションの型
  */
 export type MenuInteraction =
@@ -179,38 +202,29 @@ export async function updateControlPanel(): Promise<void> {
   // -----------------------------------------------------------------------------------------------------------
   // すべてのチャンネルの設定を取得する
   // -----------------------------------------------------------------------------------------------------------
-  const embedFields: APIEmbedField[] = config.customVcChannelIdList.map(
-    (id) => {
-      // チャンネルをフェッチ
-      const channel = client.channels.resolve(id);
-      if (!channel?.isVoiceBased()) {
-        return {
-          name: `<#${id}>`,
-          value: 'チャンネルが見つかりませんでした',
-        };
-      }
-
-      // チャンネルの設定を取得
-      const channelUserLimit = channel.userLimit;
-      const channelUserLimitText =
-        channelUserLimit === 0 ? '無制限' : `${channelUserLimit}人`;
-      const channelBitRate = Number(channel.bitrate) / 1000;
-
-      // チャンネルのオーナーを取得
-      const ownerUsers = channel.permissionOverwrites.cache.filter(
-        // 優先スピーカー権限を持っているユーザーを取得
-        (permission) =>
-          permission.allow.has(PermissionsBitField.Flags.PrioritySpeaker),
-      );
-      const ownerUserText =
-        ownerUsers.size > 0 ? `<@${ownerUsers.first()?.id}>` : 'なし';
-
+  const channelOwnerTextList = config.customVcChannelIdList.map((id) => {
+    // チャンネルをフェッチ
+    const channel = client.channels.resolve(id);
+    if (!channel?.isVoiceBased()) {
       return {
         name: `<#${id}>`,
-        value: `オーナー: ${ownerUserText}\nユーザー人数制限: ${channelUserLimitText}\nビットレート: ${channelBitRate}kbps`,
+        value: 'チャンネルが見つかりませんでした',
       };
+    }
+
+    // チャンネルのオーナーを取得
+    const ownerUser = getChannelOwner(channel);
+    const ownerUserText = ownerUser ? `<@${ownerUser.id}>` : 'なし';
+
+    // チャンネルのオーナーテキストを作成
+    return `<#${channel.id}> - 👑${ownerUserText}`;
+  });
+  const embedFields: APIEmbedField[] = [
+    {
+      name: 'VCのオーナー一覧',
+      value: channelOwnerTextList.join('\n'),
     },
-  );
+  ];
 
   // -----------------------------------------------------------------------------------------------------------
   // チャンネルの設定をパネルに反映する
@@ -230,6 +244,25 @@ export async function updateControlPanel(): Promise<void> {
       ],
     });
   }
+}
+
+/**
+ * VCのオーナーを取得する
+ * @param channel チャンネル
+ * @returns オーナー
+ */
+export function getChannelOwner(
+  channel: VoiceBasedChannel,
+): GuildMember | undefined {
+  // チャンネルのオーナーを取得
+  const ownerUser = channel.permissionOverwrites.cache.find(
+    // 優先スピーカー権限を持っているユーザーを取得
+    (permission) =>
+      permission.type === OverwriteType.Member &&
+      permission.allow.has(PermissionsBitField.Flags.PrioritySpeaker),
+  );
+  if (!ownerUser) return undefined;
+  return channel.guild.members.resolve(ownerUser.id) ?? undefined;
 }
 
 /**
@@ -300,15 +333,17 @@ export async function editChannelPermission(
 /**
  * ブロックしているユーザーを確認
  * @param interaction インタラクション
+ * @param user ユーザー
  */
 export async function showBlackList(
   interaction: MenuInteraction,
+  user: User,
 ): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
   const allUsers = await prisma.blackLists.findMany({
     where: {
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      user_id: String(interaction.user.id),
+      user_id: String(user.id),
     },
   });
 
@@ -320,7 +355,12 @@ export async function showBlackList(
 
   // リプライを送信
   await interaction.editReply({
-    embeds: [showBlackListEmbed.setDescription(blockUserList)],
+    embeds: [
+      showBlackListEmbed.setDescription(blockUserList).setAuthor({
+        name: user.username,
+        iconURL: user.avatarURL() ?? undefined,
+      }),
+    ],
   });
 }
 
@@ -337,6 +377,16 @@ export async function onOperationMenu(
     case 'peopleLimited_change': {
       // 人数制限
       await interaction.showModal(changePeopleLimitedModal);
+      break;
+    }
+
+    case 'owner_change': {
+      // ビットレート
+      await interaction.reply({
+        embeds: [transferOwnershipEmbed],
+        components: [transferOwnershipMenu],
+        ephemeral: true,
+      });
       break;
     }
   }
