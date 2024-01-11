@@ -84,42 +84,6 @@ export async function onVoiceCreateInteraction(
       }
 
       // -----------------------------------------------------------------------------------------------------------
-      // ビットレートの変更
-      // -----------------------------------------------------------------------------------------------------------
-      case 'changeBitRateModal': {
-        if (!interaction.isModalSubmit()) return;
-
-        const channelBitRate = Number(
-          interaction.fields.getTextInputValue('changeBitRateInput'),
-        );
-        if (Number.isNaN(channelBitRate)) {
-          await interaction.reply({
-            content: '数字を入れてください',
-            ephemeral: true,
-          });
-        } else if (channelBitRate < 8 || channelBitRate > 384) {
-          await interaction.reply({
-            content: '変更できるビットレートの値は8~384kbpsまでです',
-            ephemeral: true,
-          });
-        } else {
-          await interaction.deferReply({ ephemeral: true });
-
-          // 入っているVCのチャンネルを取得し、権限チェックを行う
-          const channel = await getConnectedEditableChannel(interaction);
-          if (!channel) return;
-
-          // チャンネルのビットレートを変更
-          await channel.setBitrate(channelBitRate * 1000);
-          await updateControlPanel();
-          await interaction.editReply({
-            content: `チャンネルのビットレートを${channelBitRate}kbpsに変更しました`,
-          });
-        }
-        break;
-      }
-
-      // -----------------------------------------------------------------------------------------------------------
       // ユーザーをブロックする処理
       // -----------------------------------------------------------------------------------------------------------
       case 'userBlackList': {

@@ -89,11 +89,6 @@ const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
           value: 'peopleLimited_change',
         },
         {
-          label: 'ビットレート',
-          description: 'ビットレート(音質)を変更できます(8~384)',
-          value: 'bitrate_change',
-        },
-        {
           label: 'VCの譲渡',
           description: 'VCの管理権限を他の人に渡します',
           value: 'owner_change',
@@ -157,27 +152,6 @@ changePeopleLimitedModal.addComponents(
   new ActionRowBuilder<TextInputBuilder>().addComponents(
     changePeopleLimitedInput,
   ),
-);
-
-/**
- * ビットレートの変更を行う際のモーダル
- */
-const changeBitRateModal: ModalBuilder = new ModalBuilder()
-  .setCustomId('changeBitRateModal')
-  .setTitle('ビットレートの変更');
-/**
- * ビットレートの変更を行う際のテキストボックス
- */
-const changeBitRateInput: TextInputBuilder = new TextInputBuilder()
-  .setMaxLength(3)
-  .setMinLength(1)
-  .setCustomId('changeBitRateInput')
-  .setLabel('変更するビットレート数を入力してください')
-  .setPlaceholder('8~384Kbpsまでです(64kbps以下は非推奨です)')
-  .setStyle(TextInputStyle.Short);
-// モーダルにコンポーネントを追加
-changeBitRateModal.addComponents(
-  new ActionRowBuilder<TextInputBuilder>().addComponents(changeBitRateInput),
 );
 
 /**
@@ -364,9 +338,6 @@ export async function onOperationMenu(
   switch (operationPage) {
     case 'peopleLimited': // 人数制限
       await interaction.showModal(changePeopleLimitedModal);
-      break;
-    case 'bitrate': // ビットレート
-      await interaction.showModal(changeBitRateModal);
       break;
   }
 }
