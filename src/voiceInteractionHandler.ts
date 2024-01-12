@@ -216,7 +216,7 @@ export async function onVoiceCreateInteraction(
         }
 
         // チャンネルの権限を更新
-        const channel = await getConnectedEditableChannel(interaction);
+        const channel = await getConnectedEditableChannel(interaction).catch();
         if (channel) {
           await editChannelPermission(channel, interaction.user);
         }
@@ -281,7 +281,7 @@ export async function onVoiceCreateInteraction(
         }
 
         // チャンネルの権限を更新
-        const channel = await getConnectedEditableChannel(interaction);
+        const channel = await getConnectedEditableChannel(interaction).catch();
         if (channel) {
           await editChannelPermission(channel, interaction.user);
         }
@@ -365,7 +365,7 @@ async function getConnectedEditableChannel(
       ?.has(PermissionsBitField.Flags.PrioritySpeaker)
   ) {
     // オーナー譲渡中かつオーナーがいない場合は権限チェックを行わない
-    if (!isTransferOwnership || getChannelOwner(channel)) {
+    if (!isTransferOwnership && getChannelOwner(channel)) {
       throw new Error('あなたにはチャンネルの設定をする権限がありません');
     }
   }
