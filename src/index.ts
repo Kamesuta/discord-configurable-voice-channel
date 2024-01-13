@@ -1,10 +1,11 @@
 // 必要なパッケージをインポートする
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import dotenv from 'dotenv';
-import { onVoiceCreateInteraction } from './voiceInteractionHandler.js';
-import { onVoiceStateUpdate } from './voiceStateHandler.js';
+
 import { logger } from './utils/log.js';
 import { updateControlPanel } from './voiceController.js';
+import { onVoiceCreateInteraction } from './voiceInteractionHandler.js';
+import { onVoiceStateUpdate } from './voiceStateHandler.js';
 
 // .envファイルを読み込む
 dotenv.config();

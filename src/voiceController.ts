@@ -1,3 +1,4 @@
+import { PrismaClient } from '@prisma/client';
 import {
   EmbedBuilder,
   ActionRowBuilder,
@@ -20,8 +21,9 @@ import {
   OverwriteType,
   GuildMember,
 } from 'discord.js';
+
 import { config } from './utils/config.js';
-import { PrismaClient } from '@prisma/client';
+
 import { client } from './index.js';
 
 /**
@@ -358,7 +360,6 @@ export async function editChannelPermission(
     // -----------------------------------------------------------------------------------------------------------
     await channel.edit({
       userLimit: 0,
-      bitrate: 64000,
       permissionOverwrites: [...inherit],
     });
   }
@@ -415,7 +416,7 @@ export async function onOperationMenu(
     }
 
     case 'owner_change': {
-      // ビットレート
+      // VCのオーナーの変更
       await interaction.reply({
         embeds: [transferOwnershipEmbed],
         components: [transferOwnershipMenu],

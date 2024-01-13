@@ -1,4 +1,6 @@
-import { PermissionsBitField, VoiceState } from 'discord.js';
+import { VoiceState } from 'discord.js';
+
+import { config } from './utils/config.js';
 import { logger } from './utils/log.js';
 import {
   createChannelEmbed,
@@ -8,7 +10,6 @@ import {
   noChannelOwnerEmbed,
   updateControlPanel,
 } from './voiceController.js';
-import { config } from './utils/config.js';
 
 /**
  * ボイスチャンネル作成機能

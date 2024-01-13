@@ -3,6 +3,8 @@ import {
   PermissionsBitField,
   VoiceBasedChannel,
 } from 'discord.js';
+
+import { config } from './utils/config.js';
 import {
   MenuInteraction,
   editChannelPermission,
@@ -13,7 +15,6 @@ import {
   transferedOwnershipEmbed,
   updateControlPanel,
 } from './voiceController.js';
-import { config } from './utils/config.js';
 
 /**
  * ボイスチャンネル作成のインタラクション処理
