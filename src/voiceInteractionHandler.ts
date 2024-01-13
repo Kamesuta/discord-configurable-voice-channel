@@ -174,7 +174,7 @@ export async function onVoiceCreateInteraction(
 
         // メッセージを投稿
         await channel.send({
-          content: `<@${newOwner.id}>`,
+          content: `<@${newOwner.id}> VCのオーナーが替わりました`,
           embeds: [transferedOwnershipEmbed(newOwner.user)],
         });
 

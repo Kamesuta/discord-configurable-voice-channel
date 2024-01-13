@@ -46,7 +46,7 @@ export async function onVoiceStateUpdate(
 
         // メッセージを投稿
         await newState.channel.send({
-          content: `<@${member.id}>`,
+          content: `<@${member.id}> VCへようこそ！`,
           embeds: [createChannelEmbed],
         });
       }
@@ -73,11 +73,13 @@ export async function onVoiceStateUpdate(
 
         // メッセージを投稿
         await oldState.channel.send({
+          content: 'カスタムVCが解散しました',
           embeds: [freeChannelEmbed],
         });
       } else if (getChannelOwner(oldState.channel) === member) {
         // オーナーがいない場合はメッセージを投稿
         await oldState.channel.send({
+          content: 'オーナーがVCから退出しました',
           embeds: [noChannelOwnerEmbed(member.user)],
         });
       }
