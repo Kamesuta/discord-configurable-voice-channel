@@ -144,15 +144,28 @@ export async function onVoiceCreateInteraction(
         });
         if (!channel) return;
 
-        await interaction.deferReply({ ephemeral: true });
-
-        // 譲渡先のユーザーがVCに入っているか確認
-        if (newOwner.voice.channelId !== channel.id) {
-          await interaction.editReply({
-            content: '譲渡先のユーザーが同じVCに入っていません',
+        // 譲渡先が自分自身の場合かつ、オーナーが既に自分の場合
+        if (
+          newOwner.id === interaction.user.id &&
+          newOwner === getChannelOwner(channel)
+        ) {
+          await interaction.reply({
+            content: '既にあなたがオーナーです',
+            ephemeral: true,
           });
           return;
         }
+
+        // 譲渡先のユーザーがVCに入っているか確認
+        if (newOwner.voice.channelId !== channel.id) {
+          await interaction.reply({
+            content: '譲渡先のユーザーが同じVCに入っていません',
+            ephemeral: true,
+          });
+          return;
+        }
+
+        await interaction.deferReply({ ephemeral: true });
 
         // チャンネルのオーナーを変更
         await editChannelPermission(channel, newOwner.user);
@@ -358,14 +371,21 @@ async function getConnectedEditableChannel(
       `カスタムVCのチャンネルでないため、<#${interaction.channelId}>のパネルは使用できません\nカスタムVCのチャンネルに入ってからもう一度実行してください`,
     );
   }
-  // チャンネルの権限を確認
+
+  // 自分がチャンネルの設定権限があるか確認
   if (
     !channel
       .permissionsFor(interaction.user)
       ?.has(PermissionsBitField.Flags.PrioritySpeaker)
   ) {
-    // オーナー譲渡中かつオーナーがいない場合は権限チェックを行わない
-    if (!isTransferOwnership && getChannelOwner(channel)) {
+    // 設定権限がない場合
+
+    // オーナー譲渡中でない場合、権限はないためエラー
+    // オーナー譲渡中の場合、オーナーがこのチャンネルにいない場合はエラー
+    if (
+      !isTransferOwnership ||
+      getChannelOwner(channel)?.voice.channel === channel
+    ) {
       throw new Error('あなたにはチャンネルの設定をする権限がありません');
     }
   }
