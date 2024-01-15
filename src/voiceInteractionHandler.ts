@@ -363,13 +363,13 @@ async function getConnectedEditableChannel(
   if (!channel) {
     // VCに入っていない場合、例外をthrowする
     throw new Error(
-      `VCに入っていないため、<#${interaction.channelId}>のパネルは使用できません。\nカスタムVCのチャンネルに入ってからもう一度実行してください`,
+      `VCに入っていないため、<#${interaction.channelId}>のパネルは使用できません。\nVCに入ってからもう一度実行してください`,
     );
   }
   // カスタムVCのチャンネルでない場合、例外をthrowする
   if (!config.customVcChannelIdList.includes(channel.id)) {
     throw new Error(
-      `カスタムVCのチャンネルでないため、<#${interaction.channelId}>のパネルは使用できません\nカスタムVCのチャンネルに入ってからもう一度実行してください`,
+      `このチャンネルでは、<#${interaction.channelId}>のパネルは使用できません\n他のVCに入ってからもう一度実行してください`,
     );
   }
 

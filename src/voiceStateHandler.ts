@@ -73,7 +73,7 @@ export async function onVoiceStateUpdate(
 
         // メッセージを投稿
         await oldState.channel.send({
-          content: 'カスタムVCが解散しました',
+          content: 'VCが解散しました',
           embeds: [freeChannelEmbed],
         });
       } else if (getChannelOwner(oldState.channel) === member) {

@@ -36,7 +36,7 @@ export const prisma = new PrismaClient();
  */
 const controlPannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('カスタムVC操作パネル')
+  .setTitle('🟣VC操作パネル')
   .setDescription(
     '一番最初にVCに入った人(VCのオーナー)は、このパネルでVCの管理を行うことが出来ます。\n設定を行いたい場合、下のメニューから設定を行ってください。',
   );
@@ -145,7 +145,7 @@ export const noChannelOwnerEmbed = (user: User): EmbedBuilder =>
  */
 export const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('カスタムVCが解散しました')
+  .setTitle('VCが解散しました')
   .setDescription('人がいなくなったため、VCが誰でも使えるようになりました');
 /**
  * VCを譲渡する際の埋め込みメッセージ
