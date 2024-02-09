@@ -60,7 +60,9 @@
 |キー             |説明             |備考             |
 |----------------|----------------|----------------|
 |`botColor`|Botのメッセージの色|Embedの色に使用されます|
-|`customVcChannelIdList`|カスタムVCチャンネルのIDのリスト| |
+|`customVcList`|カスタムVCチャンネルのリスト| |
+|`customVcList.channelId`|カスタムVCチャンネルのID| |
+|`customVcList.maxUser`|カスタムVCチャンネルの最大人数| |
 
 ## クレジット
 

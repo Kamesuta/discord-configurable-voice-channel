@@ -367,7 +367,11 @@ async function getConnectedEditableChannel(
     );
   }
   // カスタムVCのチャンネルでない場合、例外をthrowする
-  if (!config.customVcChannelIdList.includes(channel.id)) {
+  if (
+    !config.customVcList.find(
+      (channelEntry) => channelEntry.channelId === channel.id,
+    )
+  ) {
     throw new Error(
       `このチャンネルでは、<#${interaction.channelId}>のパネルは使用できません\n他のVCに入ってからもう一度実行してください`,
     );

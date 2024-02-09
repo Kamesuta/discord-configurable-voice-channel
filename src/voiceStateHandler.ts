@@ -31,7 +31,9 @@ export async function onVoiceStateUpdate(
   if (
     oldState.channelId !== newState.channelId &&
     newState.channelId &&
-    config.customVcChannelIdList.includes(newState.channelId)
+    config.customVcList.find(
+      (channelEntry) => channelEntry.channelId === newState.channelId,
+    )
   ) {
     if (!newState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
@@ -61,7 +63,9 @@ export async function onVoiceStateUpdate(
   if (
     oldState.channelId !== newState.channelId &&
     oldState.channelId &&
-    config.customVcChannelIdList.includes(oldState.channelId)
+    config.customVcList.find(
+      (channelEntry) => channelEntry.channelId === oldState.channelId,
+    )
   ) {
     if (!oldState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 

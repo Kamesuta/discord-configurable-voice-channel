@@ -238,12 +238,12 @@ export async function updateControlPanel(): Promise<void> {
   // -----------------------------------------------------------------------------------------------------------
   // すべてのチャンネルの設定を取得する
   // -----------------------------------------------------------------------------------------------------------
-  const channelOwnerTextList = config.customVcChannelIdList.map((id) => {
+  const channelOwnerTextList = config.customVcList.map((channelEntry) => {
     // チャンネルをフェッチ
-    const channel = client.channels.resolve(id);
+    const channel = client.channels.resolve(channelEntry.channelId);
     if (!channel?.isVoiceBased()) {
       return {
-        name: `<#${id}>`,
+        name: `<#${channelEntry.channelId}>`,
         value: 'チャンネルが見つかりませんでした',
       };
     }
@@ -310,6 +310,12 @@ export async function editChannelPermission(
   channel: VoiceBasedChannel,
   ownerUser: User | undefined,
 ): Promise<void> {
+  // コンフィグからchannelEntryを取得します
+  const channelEntry = config.customVcList.find(
+    (entry) => entry.channelId === channel.id,
+  );
+  if (!channelEntry) return;
+
   const inherit = channel.parent?.permissionOverwrites.cache.values() ?? [];
   if (ownerUser) {
     const allUsers = await prisma.blackLists.findMany({
@@ -359,7 +365,7 @@ export async function editChannelPermission(
     // チャンネルの権限をリセットする
     // -----------------------------------------------------------------------------------------------------------
     await channel.edit({
-      userLimit: 0,
+      userLimit: channelEntry.maxUser,
       permissionOverwrites: [...inherit],
     });
   }

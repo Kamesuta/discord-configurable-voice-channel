@@ -1,9 +1,12 @@
 import assert from 'assert';
-import { parse } from 'toml';
-import { getWorkdirPath } from './workdir.js';
 import { copyFileSync, existsSync, readFileSync } from 'fs';
-import { logger } from './log.js';
 import { exit } from 'process';
+
+import { parse } from 'toml';
+
+import { logger } from './log.js';
+import { getWorkdirPath } from './workdir.js';
+
 
 /**
  * Structure of the configuration file
@@ -25,7 +28,16 @@ export interface Config {
   /**
    * カスタムVCのチャンネルIDリスト
    */
-  customVcChannelIdList: string[];
+  customVcList: {
+    /**
+     * カスタムVCのID
+     */
+    channelId: string;
+    /**
+     * デフォルトの人数
+     */
+    maxUser: number;
+  }[];
 }
 
 // If config.toml does not exist, copy config.default.toml
@@ -66,8 +78,8 @@ assert(
   'controlPanelMessageId is invalid.',
 );
 assert(
-  config.customVcChannelIdList &&
-    Array.isArray(config.customVcChannelIdList) &&
-    config.customVcChannelIdList.every((id) => typeof id === 'string'),
-  'customVcChannelIdList is invalid.',
+  config.customVcList &&
+    Array.isArray(config.customVcList) &&
+    config.customVcList.every((id) => typeof id === 'object'),
+  'customVcList is invalid.',
 );
