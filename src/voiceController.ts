@@ -138,7 +138,7 @@ export const noChannelOwnerEmbed = (user: User): EmbedBuilder =>
     .setColor(parseInt(config.botColor.replace('#', ''), 16))
     .setTitle('VCのオーナーが退出しました')
     .setDescription(
-      `<@${user.id}>が退出したため、新しいオーナーを選出できます。\n新しいオーナーを設定するためには<#${config.controlPanelChannelId}>の「チャンネル設定」から「VCの譲渡」を選択してください。`,
+      `<@${user.id}>が退出したため、新しいオーナーを選出できます。\n新しいオーナーを設定するためには<#${config.controlPanelChannelId}>の「チャンネル設定」から「VCのオーナーを変更」を選択してください。`,
     );
 /**
  * チャンネルが解散した際の埋め込みメッセージ
