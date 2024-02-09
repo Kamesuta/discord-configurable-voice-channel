@@ -230,7 +230,9 @@ export async function onVoiceCreateInteraction(
         }
 
         // チャンネルの権限を更新
-        const channel = await getConnectedEditableChannel(interaction).catch();
+        const channel = await getConnectedEditableChannel(interaction).catch(
+          () => {},
+        );
         if (channel) {
           await editChannelPermission(channel, interaction.user);
         }
@@ -295,7 +297,9 @@ export async function onVoiceCreateInteraction(
         }
 
         // チャンネルの権限を更新
-        const channel = await getConnectedEditableChannel(interaction).catch();
+        const channel = await getConnectedEditableChannel(interaction).catch(
+          () => {},
+        );
         if (channel) {
           await editChannelPermission(channel, interaction.user);
         }
