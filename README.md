@@ -35,7 +35,7 @@
 
 1. リポジトリをクローンする
 2. `npm install`で依存パッケージをインストールします。
-3. `run`フォルダにある`config.sample.yml`を`config.yml`にコピーし、中身を書き換えます。
+3. `run`フォルダにある`config.sample.toml`を`config.toml`にコピーし、中身を書き換えます。
 4. XAMPPなどでMySQLを起動します。
 5. `.env.sample`を`.env`にコピーし、中身を書き換えます。
 6. `npx prisma migrate dev`でDBを作成します。
