@@ -1,5 +1,5 @@
 // 必要なパッケージをインポートする
-import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, Events, GatewayIntentBits } from 'discord.js';
 import dotenv from 'dotenv';
 
 import { logger } from './utils/log.js';
@@ -17,12 +17,9 @@ export const client: Client = new Client({
   // Botで使うGetwayIntents、partials
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildVoiceStates,
   ],
-  partials: [Partials.Message, Partials.Channel],
 });
 
 // -----------------------------------------------------------------------------------------------------------
