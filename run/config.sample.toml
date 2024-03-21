@@ -11,3 +11,9 @@ customVcList = [
   { channelId = "000000000000000000", maxUser = 5 }, # 1つ目のカスタムVC (人数制限5人)
   { channelId = "000000000000000000", maxUser = 0 }, # 2つ目のカスタムVC (人数制限なし)
 ]
+
+# 読み上げBOTのIDリスト
+readBotList = [
+  { botId = "000000000000000000" }, # 1人目の読み上げBotのID
+  { botId = "000000000000000000" }, # 2人目の読み上げBotのID
+]

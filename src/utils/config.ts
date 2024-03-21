@@ -38,6 +38,15 @@ export interface Config {
      */
     maxUser: number;
   }[];
+  /**
+   * 読み上げBotのIDリスト
+   */
+  readBotList: {
+    /**
+     * 読み上げBotのID
+     */
+    botId: string;
+  }[];
 }
 
 // If config.toml does not exist, copy config.default.toml
@@ -82,4 +91,10 @@ assert(
     Array.isArray(config.customVcList) &&
     config.customVcList.every((id) => typeof id === 'object'),
   'customVcList is invalid.',
+);
+assert(
+  config.readBotList &&
+    Array.isArray(config.readBotList) &&
+    config.readBotList.every((id) => typeof id === 'object'),
+    'readBotList is invalid.',
 );

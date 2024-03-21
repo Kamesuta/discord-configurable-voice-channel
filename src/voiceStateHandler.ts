@@ -9,6 +9,7 @@ import {
   getChannelOwner,
   noChannelOwnerEmbed,
   updateControlPanel,
+  onlyReadBotEmbed,
 } from './voiceController.js';
 
 /**
@@ -77,18 +78,35 @@ export async function onVoiceStateUpdate(
 
         // メッセージを投稿
         await oldState.channel.send({
-          content: 'VCが解散しました',
           embeds: [freeChannelEmbed],
         });
       } else if (getChannelOwner(oldState.channel) === member) {
         // オーナーがいない場合はメッセージを投稿
         await oldState.channel.send({
-          content: 'オーナーがVCから退出しました',
           embeds: [noChannelOwnerEmbed(member.user)],
         });
+        await onlyReadBot(oldState);
+      } else {
+        await onlyReadBot(oldState);
       }
     } catch (error) {
       logger.error(error);
+    }
+  }
+}
+
+async function onlyReadBot(oldState: VoiceState) {
+  // -----------------------------------------------------------------------------------------------------------
+  // VCが読み上げBotのみの場合，Botをキックする処理
+  // -----------------------------------------------------------------------------------------------------------
+  if (oldState.channel != null) {
+    const vc_members = oldState.channel.members.map(member => member.id);
+    const read_members = await vc_members.some(memberID => !config.readBotList.map(bot => bot.botId).includes(memberID));
+    if (!read_members) {
+      oldState.channel.members.forEach(member => member.voice.disconnect());
+      if (oldState.channel.members.size === 1) {
+        await oldState.channel.send({ embeds: [onlyReadBotEmbed] });
+      }
     }
   }
 }

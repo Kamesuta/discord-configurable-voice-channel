@@ -63,6 +63,8 @@
 |`customVcList`|カスタムVCチャンネルのリスト| |
 |`customVcList.channelId`|カスタムVCチャンネルのID| |
 |`customVcList.maxUser`|カスタムVCチャンネルの最大人数| |
+|`readBotList`|読み上げBotのリスト| |
+|`readBotList.botId`|読み上げBotのID| |
 
 ## クレジット
 

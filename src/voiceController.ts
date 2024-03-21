@@ -148,6 +148,13 @@ export const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
   .setTitle('VCが解散しました')
   .setDescription('人がいなくなったため、VCが誰でも使えるようになりました');
 /**
+ * チャンネルが読み上げBotのみになった際の埋め込みメッセージ
+ */
+export const onlyReadBotEmbed: EmbedBuilder = new EmbedBuilder()
+  .setColor(parseInt(config.botColor.replace('#', ''), 16))
+  .setTitle('読み上げBotのみになりました')
+  .setDescription('読み上げBotのみになったためBotが切断されました');
+/**
  * VCを譲渡する際の埋め込みメッセージ
  * @param user 譲渡されたユーザー
  * @returns 埋め込みメッセージ
