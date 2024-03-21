@@ -9,7 +9,7 @@ import {
   getChannelOwner,
   noChannelOwnerEmbed,
   updateControlPanel,
-  onlyReadBotEmbed,
+  onlyBotKickEmbed,
 } from './voiceController.js';
 
 /**
@@ -71,42 +71,46 @@ export async function onVoiceStateUpdate(
     if (!oldState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
     try {
-      if (oldState.channel.members.size === 0) {
+      // VCの全メンバー (コンフィグに入ったBotを除く)
+      const membersAll = oldState.channel.members;
+      const members = membersAll.filter(
+        (member) => !config.readBotList.some((bot) => bot.botId === member.id),
+      );
+
+      if (members.size === 0) {
+        // 人がいない場合
         // チャンネルの詳細をリセット
         await editChannelPermission(oldState.channel, undefined);
         await updateControlPanel();
 
-        // メッセージを投稿
-        await oldState.channel.send({
-          embeds: [freeChannelEmbed],
-        });
+        // VCの人(Bot以外)がいなくなった場合 → 解散
+        if (oldState.channel.members.size === 0) {
+          // 人もBotも全員いなくなった場合
+          // メッセージを投稿
+          await oldState.channel.send({
+            embeds: [freeChannelEmbed],
+          });
+        } else {
+          // 最後のBotをキックする際にメッセージを投稿
+          if (oldState.channel.members.size === 1) {
+            await oldState.channel.send({
+              embeds: [onlyBotKickEmbed],
+            });
+          }
+          // 人がいなくなったがBotがいる場合
+          const botMember = oldState.channel.members.first();
+          if (botMember) {
+            await botMember.voice.disconnect();
+          }
+        }
       } else if (getChannelOwner(oldState.channel) === member) {
         // オーナーがいない場合はメッセージを投稿
         await oldState.channel.send({
           embeds: [noChannelOwnerEmbed(member.user)],
         });
-        await onlyReadBot(oldState);
-      } else {
-        await onlyReadBot(oldState);
       }
     } catch (error) {
       logger.error(error);
-    }
-  }
-}
-
-async function onlyReadBot(oldState: VoiceState) {
-  // -----------------------------------------------------------------------------------------------------------
-  // VCが読み上げBotのみの場合，Botをキックする処理
-  // -----------------------------------------------------------------------------------------------------------
-  if (oldState.channel != null) {
-    const vc_members = oldState.channel.members.map(member => member.id);
-    const read_members = await vc_members.some(memberID => !config.readBotList.map(bot => bot.botId).includes(memberID));
-    if (!read_members) {
-      oldState.channel.members.forEach(member => member.voice.disconnect());
-      if (oldState.channel.members.size === 1) {
-        await oldState.channel.send({ embeds: [onlyReadBotEmbed] });
-      }
     }
   }
 }

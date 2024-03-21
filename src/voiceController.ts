@@ -150,7 +150,7 @@ export const freeChannelEmbed: EmbedBuilder = new EmbedBuilder()
 /**
  * チャンネルが読み上げBotのみになった際の埋め込みメッセージ
  */
-export const onlyReadBotEmbed: EmbedBuilder = new EmbedBuilder()
+export const onlyBotKickEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('読み上げBotのみになりました')
   .setDescription('読み上げBotのみになったためBotが切断されました');
