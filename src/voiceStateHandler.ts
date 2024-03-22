@@ -1,4 +1,4 @@
-import { VoiceState } from 'discord.js';
+import { VoiceBasedChannel, VoiceState } from 'discord.js';
 
 import { config } from './utils/config.js';
 import { logger } from './utils/log.js';
@@ -86,10 +86,12 @@ export async function onVoiceStateUpdate(
         // VCの人(Bot以外)がいなくなった場合 → 解散
         if (oldState.channel.members.size === 0) {
           // 人もBotも全員いなくなった場合
-          // メッセージを投稿
-          await oldState.channel.send({
-            embeds: [freeChannelEmbed],
-          });
+          if (!(await deleteNotificationIfNoMessage(oldState.channel))) {
+            // メッセージを投稿
+            await oldState.channel.send({
+              embeds: [freeChannelEmbed],
+            });
+          }
         } else {
           // 最後のBotをキックする際にメッセージを投稿
           if (oldState.channel.members.size === 1) {
@@ -113,4 +115,45 @@ export async function onVoiceStateUpdate(
       logger.error(error);
     }
   }
+}
+
+/**
+ * ボイスチャンネル作成から終了までの間に一度もチャットがない場合、メッセージを削除する
+ * @param channel チャンネル
+ * @returns メッセージが送信されていない場合(=削除した場合)はtrueを返す
+ */
+async function deleteNotificationIfNoMessage(
+  channel: VoiceBasedChannel,
+): Promise<boolean> {
+  // 直近10件のメッセージを取得
+  const messages = await channel.messages.fetch({ limit: 10 });
+
+  // 直近10件のメッセージからこのBotの「ようこそ」メッセージを見つける
+  const startMessage = messages.find(
+    (message) =>
+      message.author.id === channel.client.user?.id &&
+      message.embeds[0].title === createChannelEmbed.data.title,
+  );
+  if (!startMessage) return false;
+
+  // 「ようこそ」以降のメッセージを取得
+  const messagesAfterStartMessage = messages.filter(
+    (message) => message.id > startMessage.id,
+  );
+
+  // Bot以外のメッセージが含まれている場合、無視
+  if (messagesAfterStartMessage.some((message) => !message.author.bot))
+    return false;
+
+  // このBotのメッセージを取得
+  const announceMessages = messagesAfterStartMessage.filter(
+    (message) => message.author.id === channel.client.user?.id,
+  );
+  // メッセージを削除
+  await startMessage.delete();
+  for (const message of announceMessages.values()) {
+    await message.delete();
+  }
+
+  return true;
 }
