@@ -63,14 +63,20 @@ const userBlackReleaseListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
       .setMinValues(1),
   );
 /**
- * ブロックしているユーザーを確認するためのボタン
+ * ボタンの行
  */
-const showBlackListButton: ActionRowBuilder<ButtonBuilder> =
+const buttonRow: ActionRowBuilder<ButtonBuilder> =
   new ActionRowBuilder<ButtonBuilder>().setComponents(
+    // ブロックユーザー確認ボタン
     new ButtonBuilder()
       .setCustomId('showBlackList')
       .setLabel('ブロックユーザー確認')
       .setStyle(ButtonStyle.Success),
+    // 許可制VCをON/OFFするためのボタン
+    new ButtonBuilder()
+      .setCustomId('toggleApproval')
+      .setLabel('許可制VCをON/OFF')
+      .setStyle(ButtonStyle.Primary),
   );
 
 /**
@@ -174,6 +180,21 @@ const showBlackListEmbed: EmbedBuilder = new EmbedBuilder()
   .setTitle('ブロックしているユーザー');
 
 /**
+ * 許可制VCをON/OFFする際のメッセージ
+ * @param enabled 許可制VCがONかOFFか
+ * @returns 埋め込みメッセージ
+ */
+export const toggleApprovalEmbed = (enabled: boolean): EmbedBuilder =>
+  new EmbedBuilder()
+    .setColor(parseInt(config.botColor.replace('#', ''), 16))
+    .setTitle('許可制VCの設定が変更されました')
+    .setDescription(
+      `許可制VCが${
+        enabled ? 'ON' : 'OFF'
+      }になりました\n「↓参加」VCに入るとリクエスト通知が来ます`,
+    );
+
+/**
  * 人数制限の変更を行う際のモーダル
  */
 const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
@@ -250,7 +271,7 @@ export async function updateControlPanel(): Promise<void> {
       components: [
         userBlackListMenu,
         userBlackReleaseListMenu,
-        showBlackListButton,
+        buttonRow,
         operationMenu,
       ],
     });
@@ -280,10 +301,12 @@ export function getChannelOwner(
  * チャンネルの権限設定を更新する
  * @param channel チャンネル
  * @param ownerUser ユーザー
+ * @param approval 許可制VCかどうか
  */
 export async function editChannelPermission(
   channel: VoiceBasedChannel,
   ownerUser: User | undefined,
+  approval?: boolean,
 ): Promise<void> {
   // コンフィグからchannelEntryを取得します
   const channelEntry = config.customVcList.find(
@@ -300,9 +323,19 @@ export async function editChannelPermission(
       },
     });
 
+    // 入る権限がeveryoneについているか確認
+    if (approval === undefined) {
+      approval = isApprovalChannel(channel);
+    }
+
     // チャンネル権限オーバーライド
     const overwrites: OverwriteResolvable[] = [
       ...inherit,
+      {
+        // 許可制VCかどうか
+        id: channel.guild.roles.everyone,
+        deny: approval ? [PermissionsBitField.Flags.Connect] : [],
+      },
       {
         id: ownerUser,
         allow: [allowUserPermisson, allowCreateUserPermisson],
@@ -344,6 +377,18 @@ export async function editChannelPermission(
       permissionOverwrites: [...inherit],
     });
   }
+}
+
+/**
+ * 許可制VCかどうかを判定する
+ * @param channel チャンネル
+ * @returns 許可制VCかどうか
+ */
+export function isApprovalChannel(channel: VoiceBasedChannel): boolean {
+  const everyonePermission = channel.permissionsFor(
+    channel.guild.roles.everyone,
+  );
+  return !everyonePermission.has(PermissionsBitField.Flags.Connect);
 }
 
 /**

@@ -9,9 +9,11 @@ import {
   MenuInteraction,
   editChannelPermission,
   getChannelOwner,
+  isApprovalChannel,
   onOperationMenu,
   prisma,
   showBlackList,
+  toggleApprovalEmbed,
   transferedOwnershipEmbed,
 } from './voiceController.js';
 import { onVoiceStatusChange } from './voiceStatusHandler.js';
@@ -319,10 +321,54 @@ export async function onVoiceCreateInteraction(
         await showBlackList(interaction, interaction.user);
         break;
       }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // ブロックしているユーザーを確認する処理
+      // -----------------------------------------------------------------------------------------------------------
+      case 'toggleApproval': {
+        if (!interaction.isButton()) return;
+
+        await toggleApproval(interaction);
+        break;
+      }
     }
   } catch (error) {
     console.log(error);
   }
+}
+
+/**
+ * 許可制VCをON/OFF
+ * @param interaction インタラクション
+ */
+export async function toggleApproval(
+  interaction: MenuInteraction,
+): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  // 権限を設定
+  // チャンネルの権限を更新
+  const channel = await getConnectedEditableChannel(interaction).catch(
+    async (error: Error) => {
+      // エラーが発生した場合、エラーメッセージを返信して処理を終了
+      await interaction.editReply({
+        content: error.message,
+      });
+    },
+  );
+  if (!channel) return;
+
+  // 許可制VCかどうか
+  const approval = channel ? !isApprovalChannel(channel) : false;
+  if (channel) {
+    // 許可制VCかどうかを切り替え
+    await editChannelPermission(channel, interaction.user, approval);
+  }
+
+  // リプライを送信
+  await interaction.editReply({
+    embeds: [toggleApprovalEmbed(approval)],
+  });
 }
 
 /**
