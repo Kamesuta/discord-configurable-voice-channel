@@ -48,6 +48,9 @@ interface ChannelStatuses {
  */
 export function registerVoiceStatusHandler(): void {
   client.ws.on(VOICE_CHANNEL_STATUS_UPDATE, (data: VoiceChannelStatus) => {
+    // ステータスが変更されていなかったら処理を終了
+    if (statuses[data.id] === data.status) return;
+
     // ステータスが変更されたら記録
     statuses[data.id] = data.status;
 
@@ -56,16 +59,19 @@ export function registerVoiceStatusHandler(): void {
     // カスタムVCのチャンネルでない場合は処理を終了
     if (
       !channel ||
+      !channel.isVoiceBased() ||
       !config.customVcList.some((vc) => vc.channelId === channel.id)
     ) {
       return;
     }
 
-    // ステータスがない場合、おそらくVCが解散されたときなので無視
-    if (data.status === null) return;
+    // VCが0人になった場合無視
+    if (channel.members.size === 0) {
+      return;
+    }
 
     // ステータスが変更されたチャンネルのオーナーを更新
-    void onVoiceStatusChange(channel as VoiceBasedChannel, data.status);
+    void onVoiceStatusChange(channel, data.status);
   });
 
   // 全チャンネルのステータスを取得するハンドラーを登録
@@ -163,8 +169,11 @@ function getVoiceStatus(channel: VoiceBasedChannel): string | undefined {
  */
 async function setVoiceStatus(
   channel: VoiceBasedChannel,
-  status: string,
+  status: string | null,
 ): Promise<void> {
+  // ステータスを更新
+  statuses[channel.id] = status;
+
   // ステータスの更新
   await client.rest.put(`${Routes.channel(channel.id)}/voice-status`, {
     body: {
