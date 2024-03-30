@@ -110,6 +110,10 @@ export async function onVoiceStateUpdate(
           }
         }
       } else if (getChannelOwner(oldChannel) === member) {
+        // オーナーがいない場合はチャンネルを解放する
+        await editChannelPermission(oldChannel, undefined);
+        await onVoiceStatusChange(oldChannel, undefined, 'オーナーなし');
+
         // オーナーがいない場合はメッセージを投稿
         await oldChannel.send({
           embeds: [noChannelOwnerEmbed(member.user)],

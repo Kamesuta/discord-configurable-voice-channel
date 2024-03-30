@@ -65,14 +65,19 @@ export function registerVoiceStatusHandler(): void {
  * ボイスチャンネルのステータスが変更されたとき、ステータスにVCのオーナーを追加する
  * @param channel チャンネル
  * @param status ステータス
+ * @param ownerName オーナーの名前
  */
 export async function onVoiceStatusChange(
   channel: VoiceBasedChannel,
   status?: string | null,
+  ownerName?: string,
 ): Promise<void> {
   // チャンネルオーナーを取得
-  const owner = getChannelOwner(channel);
-  if (!owner) return;
+  if (!ownerName) {
+    const owner = getChannelOwner(channel);
+    if (!owner) return;
+    ownerName = owner.displayName;
+  }
 
   // ステータスがundefinedの場合、ステータスを取得して処理を続行
   if (status === undefined) {
@@ -81,7 +86,7 @@ export async function onVoiceStatusChange(
 
   // statusがnullまたは空の場合、オーナーだけをステータスに設定する
   if (!status) {
-    await setVoiceStatus(channel, `(👑${owner.displayName})`);
+    await setVoiceStatus(channel, `(👑${ownerName})`);
     return;
   }
 
@@ -91,16 +96,16 @@ export async function onVoiceStatusChange(
   const match = status.match(statusPattern);
   if (match) {
     // オーナーが既に含まれている場合、オーナーの名前を更新する必要がない
-    if (match[1] === owner.displayName) return;
+    if (match[1] === ownerName) return;
 
     // オーナーの名前を更新する
     await setVoiceStatus(
       channel,
-      status.replace(statusPattern, `(👑${owner.displayName})`),
+      status.replace(statusPattern, `(👑${ownerName})`),
     );
   } else {
     // ステータスにオーナーが含まれていない場合、追加する
-    await setVoiceStatus(channel, `${status} (👑${owner.displayName})`);
+    await setVoiceStatus(channel, `${status} (👑${ownerName})`);
   }
 }
 
