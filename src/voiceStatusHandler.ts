@@ -21,6 +21,11 @@ const CHANNEL_STATUSES = 'CHANNEL_STATUSES' as GatewayDispatchEvents;
 /**
  * ボイスチャンネルのステータス
  */
+let statuses: Record<Snowflake, string | null> = {};
+
+/**
+ * ボイスチャンネルのステータス
+ */
 interface VoiceChannelStatus {
   /** チャンネルのID */
   id: Snowflake;
@@ -43,6 +48,9 @@ interface ChannelStatuses {
  */
 export function registerVoiceStatusHandler(): void {
   client.ws.on(VOICE_CHANNEL_STATUS_UPDATE, (data: VoiceChannelStatus) => {
+    // ステータスが変更されたら記録
+    statuses[data.id] = data.status;
+
     // ステータスが変更されたチャンネルのIDリストを取得
     const channel = client.channels.cache.get(data.id);
     // カスタムVCのチャンネルでない場合は処理を終了
@@ -58,6 +66,35 @@ export function registerVoiceStatusHandler(): void {
 
     // ステータスが変更されたチャンネルのオーナーを更新
     void onVoiceStatusChange(channel as VoiceBasedChannel, data.status);
+  });
+
+  // 全チャンネルのステータスを取得するハンドラーを登録
+  client.ws.on(CHANNEL_STATUSES, (data: ChannelStatuses) => {
+    statuses = Object.fromEntries(data.channels.map((c) => [c.id, c.status]));
+  });
+
+  // ボットが起動したとき、全ギルドのVCのステータスを取得する
+  client.on('ready', () => {
+    // 全ギルドを取得
+    const guildIds = new Set(
+      config.customVcList.flatMap((vc) => {
+        const channel = client.channels.resolve(vc.channelId);
+        if (!channel) return [];
+        if (!channel.isVoiceBased()) return [];
+        return channel.guildId;
+      }),
+    );
+
+    // Gateway APIに対して、サーバーのすべてのVCのステータスを取得するリクエストを送信する
+    for (const guildId of guildIds) {
+      client.ws['broadcast']({
+        op: CHANNEL_STATUS_REQUEST_OP_CODE,
+        d: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          guild_id: guildId,
+        },
+      });
+    }
   });
 }
 
@@ -81,7 +118,7 @@ export async function onVoiceStatusChange(
 
   // ステータスがundefinedの場合、ステータスを取得して処理を続行
   if (status === undefined) {
-    status = await getVoiceStatus(channel);
+    status = getVoiceStatus(channel);
   }
 
   // statusがnullまたは空の場合、オーナーだけをステータスに設定する
@@ -114,26 +151,9 @@ export async function onVoiceStatusChange(
  * @param channel チャンネル
  * @returns ステータス
  */
-async function getVoiceStatus(
-  channel: VoiceBasedChannel,
-): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    // リクエスト後にレスポンスメッセージが返ってくるため、一度だけ受信を行う
-    client.ws.once(CHANNEL_STATUSES, (data: ChannelStatuses) => {
-      resolve(
-        data.channels.find((c) => c.id === channel.id)?.status ?? undefined,
-      );
-    });
-
-    // Gateway APIに対して、サーバーのすべてのVCのステータスを取得するリクエストを送信する
-    client.ws['broadcast']({
-      op: CHANNEL_STATUS_REQUEST_OP_CODE,
-      d: {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        guild_id: channel.guild.id,
-      },
-    });
-  });
+function getVoiceStatus(channel: VoiceBasedChannel): string | undefined {
+  // ステータスの取得
+  return statuses[channel.id] ?? undefined;
 }
 
 /**
