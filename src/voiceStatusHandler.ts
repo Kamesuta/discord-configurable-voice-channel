@@ -157,7 +157,7 @@ export async function onVoiceStatusChange(
  * @param channel チャンネル
  * @returns ステータス
  */
-function getVoiceStatus(channel: VoiceBasedChannel): string | undefined {
+export function getVoiceStatus(channel: VoiceBasedChannel): string | undefined {
   // ステータスの取得
   return statuses[channel.id] ?? undefined;
 }
@@ -167,7 +167,7 @@ function getVoiceStatus(channel: VoiceBasedChannel): string | undefined {
  * @param channel チャンネル
  * @param status ステータス
  */
-async function setVoiceStatus(
+export async function setVoiceStatus(
   channel: VoiceBasedChannel,
   status: string | null,
 ): Promise<void> {

@@ -10,7 +10,7 @@ import {
   noChannelOwnerEmbed,
   onlyBotKickEmbed,
 } from './voiceController.js';
-import { onVoiceStatusChange } from './voiceStatusHandler.js';
+import { onVoiceStatusChange, setVoiceStatus } from './voiceStatusHandler.js';
 
 /**
  * ボイスチャンネル作成機能
@@ -96,6 +96,9 @@ export async function onVoiceStateUpdate(
               embeds: [freeChannelEmbed],
             });
           }
+
+          // ステータスが残ってしまう不具合があるため、ここでステータスを削除しておく
+          await setVoiceStatus(oldChannel, null);
         } else {
           // 最後のBotをキックする際にメッセージを投稿
           if (oldChannel.members.size === 1) {
