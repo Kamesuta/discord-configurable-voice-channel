@@ -26,29 +26,33 @@ export async function onVoiceStateUpdate(
   const member = newState.member ?? oldState.member;
   if (!member) return; // メンバーが取得できない場合は処理を終了
 
+  // チャンネルを取得
+  const oldChannel = oldState.channel;
+  const newChannel = newState.channel;
+
   // -----------------------------------------------------------------------------------------------------------
   // VC作成チャンネルに入った場合の処理
   // -----------------------------------------------------------------------------------------------------------
   if (
-    oldState.channelId !== newState.channelId &&
-    newState.channelId &&
+    oldChannel?.id !== newChannel?.id &&
+    newChannel?.id &&
     config.customVcList.find(
-      (channelEntry) => channelEntry.channelId === newState.channelId,
+      (channelEntry) => channelEntry.channelId === newChannel?.id,
     )
   ) {
-    if (!newState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
+    if (!newChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
     try {
-      if (newState.channel.members.size === 1) {
+      if (newChannel.members.size === 1) {
         // -----------------------------------------------------------------------------------------------------------
         // 初めてVCに入った場合、入った人をオーナーにしてチャンネルを初期化する処理
         // -----------------------------------------------------------------------------------------------------------
         // チャンネルの詳細を設定
-        await editChannelPermission(newState.channel, member.user);
-        await onVoiceStatusChange(newState.channel);
+        await editChannelPermission(newChannel, member.user);
+        await onVoiceStatusChange(newChannel);
 
         // メッセージを投稿
-        await newState.channel.send({
+        await newChannel.send({
           content: `<@${member.id}> VCへようこそ！`,
           embeds: [createChannelEmbed],
         });
@@ -62,17 +66,17 @@ export async function onVoiceStateUpdate(
   // VCに誰もいない場合、チャンネルを削除する処理
   // -----------------------------------------------------------------------------------------------------------
   if (
-    oldState.channelId !== newState.channelId &&
-    oldState.channelId &&
+    oldChannel?.id !== newChannel?.id &&
+    oldChannel?.id &&
     config.customVcList.find(
-      (channelEntry) => channelEntry.channelId === oldState.channelId,
+      (channelEntry) => channelEntry.channelId === oldChannel?.id,
     )
   ) {
-    if (!oldState.channel) return; // ボイスチャンネルが取得できない場合は処理を終了
+    if (!oldChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
 
     try {
       // VCの全メンバー (コンフィグに入ったBotを除く)
-      const membersAll = oldState.channel.members;
+      const membersAll = oldChannel.members;
       const members = membersAll.filter(
         (member) => !config.readBotList.some((bot) => bot.botId === member.id),
       );
@@ -80,34 +84,34 @@ export async function onVoiceStateUpdate(
       if (members.size === 0) {
         // 人がいない場合
         // チャンネルの詳細をリセット
-        await editChannelPermission(oldState.channel, undefined);
-        await onVoiceStatusChange(oldState.channel, null);
+        await editChannelPermission(oldChannel, undefined);
+        await onVoiceStatusChange(oldChannel, null);
 
         // VCの人(Bot以外)がいなくなった場合 → 解散
-        if (oldState.channel.members.size === 0) {
+        if (oldChannel.members.size === 0) {
           // 人もBotも全員いなくなった場合
-          if (!(await deleteNotificationIfNoMessage(oldState.channel))) {
+          if (!(await deleteNotificationIfNoMessage(oldChannel))) {
             // メッセージを投稿
-            await oldState.channel.send({
+            await oldChannel.send({
               embeds: [freeChannelEmbed],
             });
           }
         } else {
           // 最後のBotをキックする際にメッセージを投稿
-          if (oldState.channel.members.size === 1) {
-            await oldState.channel.send({
+          if (oldChannel.members.size === 1) {
+            await oldChannel.send({
               embeds: [onlyBotKickEmbed],
             });
           }
           // 人がいなくなったがBotがいる場合
-          const botMember = oldState.channel.members.first();
+          const botMember = oldChannel.members.first();
           if (botMember) {
             await botMember.voice.disconnect();
           }
         }
-      } else if (getChannelOwner(oldState.channel) === member) {
+      } else if (getChannelOwner(oldChannel) === member) {
         // オーナーがいない場合はメッセージを投稿
-        await oldState.channel.send({
+        await oldChannel.send({
           embeds: [noChannelOwnerEmbed(member.user)],
         });
       }
