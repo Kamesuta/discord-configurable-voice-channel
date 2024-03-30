@@ -8,9 +8,9 @@ import {
   freeChannelEmbed,
   getChannelOwner,
   noChannelOwnerEmbed,
-  updateControlPanel,
   onlyBotKickEmbed,
 } from './voiceController.js';
+import { onVoiceStatusChange } from './voiceStatusHandler.js';
 
 /**
  * ボイスチャンネル作成機能
@@ -45,7 +45,7 @@ export async function onVoiceStateUpdate(
         // -----------------------------------------------------------------------------------------------------------
         // チャンネルの詳細を設定
         await editChannelPermission(newState.channel, member.user);
-        await updateControlPanel();
+        await onVoiceStatusChange(newState.channel);
 
         // メッセージを投稿
         await newState.channel.send({
@@ -81,7 +81,7 @@ export async function onVoiceStateUpdate(
         // 人がいない場合
         // チャンネルの詳細をリセット
         await editChannelPermission(oldState.channel, undefined);
-        await updateControlPanel();
+        await onVoiceStatusChange(oldState.channel, null);
 
         // VCの人(Bot以外)がいなくなった場合 → 解散
         if (oldState.channel.members.size === 0) {

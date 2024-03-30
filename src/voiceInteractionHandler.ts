@@ -13,8 +13,8 @@ import {
   prisma,
   showBlackList,
   transferedOwnershipEmbed,
-  updateControlPanel,
 } from './voiceController.js';
+import { onVoiceStatusChange } from './voiceStatusHandler.js';
 
 /**
  * ボイスチャンネル作成のインタラクション処理
@@ -99,7 +99,6 @@ export async function onVoiceCreateInteraction(
 
         // チャンネルの人数制限を変更
         await channel.setUserLimit(channelUserLimit);
-        await updateControlPanel();
         await interaction.editReply({
           content: `チャンネルの人数制限を${channelUserLimit}人に変更しました`,
         });
@@ -170,7 +169,7 @@ export async function onVoiceCreateInteraction(
 
         // チャンネルのオーナーを変更
         await editChannelPermission(channel, newOwner.user);
-        await updateControlPanel();
+        await onVoiceStatusChange(channel);
 
         // メッセージを投稿
         await channel.send({

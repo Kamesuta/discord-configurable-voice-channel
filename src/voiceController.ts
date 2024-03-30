@@ -11,7 +11,6 @@ import {
   OverwriteResolvable,
   VoiceBasedChannel,
   User,
-  APIEmbedField,
   ButtonInteraction,
   UserSelectMenuBuilder,
   ButtonBuilder,
@@ -243,42 +242,11 @@ export async function updateControlPanel(): Promise<void> {
     : undefined;
 
   // -----------------------------------------------------------------------------------------------------------
-  // すべてのチャンネルの設定を取得する
-  // -----------------------------------------------------------------------------------------------------------
-  const channelOwnerTextList = config.customVcList.map((channelEntry) => {
-    // チャンネルをフェッチ
-    const channel = client.channels.resolve(channelEntry.channelId);
-    if (!channel?.isVoiceBased()) {
-      return {
-        name: `<#${channelEntry.channelId}>`,
-        value: 'チャンネルが見つかりませんでした',
-      };
-    }
-
-    // チャンネルのオーナーを取得
-    const ownerUser = getChannelOwner(channel);
-    const ownerUserText = ownerUser ? `<@${ownerUser.id}>` : 'なし';
-
-    // チャンネルのオーナーテキストを作成
-    return `<#${channel.id}> - 👑${ownerUserText}`;
-  });
-  const embedFields: APIEmbedField[] = [
-    {
-      name: 'VCのオーナー一覧',
-      value: channelOwnerTextList.join('\n'),
-    },
-  ];
-
-  // -----------------------------------------------------------------------------------------------------------
   // チャンネルの設定をパネルに反映する
   // -----------------------------------------------------------------------------------------------------------
-  if (panelMessage) {
-    await panelMessage.edit({
-      embeds: [controlPannelEmbed.setFields(...embedFields)],
-    });
-  } else {
+  if (!panelMessage) {
     await panelChannel.send({
-      embeds: [controlPannelEmbed.setFields(...embedFields)],
+      embeds: [controlPannelEmbed],
       components: [
         userBlackListMenu,
         userBlackReleaseListMenu,

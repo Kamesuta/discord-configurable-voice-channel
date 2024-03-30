@@ -6,6 +6,7 @@ import { logger } from './utils/log.js';
 import { updateControlPanel } from './voiceController.js';
 import { onVoiceCreateInteraction } from './voiceInteractionHandler.js';
 import { onVoiceStateUpdate } from './voiceStateHandler.js';
+import { registerVoiceStatusHandler } from './voiceStatusHandler.js';
 
 // .envファイルを読み込む
 dotenv.config();
@@ -33,6 +34,7 @@ client.on(Events.ClientReady, async () => {
   // VC操作パネルのメッセージを投稿する
   await updateControlPanel();
 });
+registerVoiceStatusHandler();
 
 // Discordにログインする
 await client.login(process.env.DISCORD_TOKEN);
