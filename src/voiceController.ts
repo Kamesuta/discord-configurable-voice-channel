@@ -19,6 +19,7 @@ import {
   ButtonStyle,
   OverwriteType,
   GuildMember,
+  ChannelType,
 } from 'discord.js';
 
 import { config } from './utils/config.js';
@@ -118,10 +119,24 @@ const allowCreateUserPermisson: bigint[] = [
 ];
 
 /**
+ * 許可制VCの許可された人の権限
+ */
+const allowUserApprovalChannelPermisson: bigint[] = [
+  PermissionsBitField.Flags.Connect, // 接続
+];
+
+/**
  * ボイスチャンネルを使用させなくさせるための権限
  */
 const denyUserPermisson: bigint[] = [
   PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
+];
+
+/**
+ * 許可制VCのデフォルト権限
+ */
+const denyUserApprovalChannelPermisson: bigint[] = [
+  PermissionsBitField.Flags.Connect, // 接続
 ];
 
 /**
@@ -314,69 +329,86 @@ export async function editChannelPermission(
   );
   if (!channelEntry) return;
 
-  const inherit = channel.parent?.permissionOverwrites.cache.values() ?? [];
-  if (ownerUser) {
-    const allUsers = await prisma.blackLists.findMany({
-      where: {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        user_id: String(ownerUser.id),
-      },
-    });
+  // 親カテゴリから継承した権限を取得
+  const inheritOverwrites = getOwnCategoryPermission(channel);
 
+  if (ownerUser) {
     // 入る権限がeveryoneについているか確認
     if (approval === undefined) {
       approval = isApprovalChannel(channel);
     }
 
-    // チャンネル権限オーバーライド
-    const overwrites: OverwriteResolvable[] = [
-      ...inherit,
+    // 許可制VCの場合、許可されたユーザーを取得
+    const approvedOverwrites = [
+      ...channel.permissionOverwrites.cache.values(),
+    ].filter((permission) =>
+      permission.allow.has(allowUserApprovalChannelPermisson),
+    );
+
+    // ブロックしているユーザーがいた場合、チャンネルを表示しない
+    const denyOverwrites = await getDenyOverwrites(ownerUser);
+
+    // チャンネルの権限をセットする
+    await channel.permissionOverwrites.set([
+      ...inheritOverwrites,
+      ...approvedOverwrites,
       {
         // 許可制VCかどうか
         id: channel.guild.roles.everyone,
-        deny: approval ? [PermissionsBitField.Flags.Connect] : [],
+        deny: approval ? [denyUserApprovalChannelPermisson] : [],
       },
       {
+        // オーナーの権限
         id: ownerUser,
         allow: [allowUserPermisson, allowCreateUserPermisson],
       },
-    ];
-    // -----------------------------------------------------------------------------------------------------------
-    // ブロックしているユーザーがいた場合、チャンネルを表示しない
-    // -----------------------------------------------------------------------------------------------------------
-    for (const user of allUsers) {
-      // ユーザーをフェッチしないと内部でresolveに失敗してエラーが出る
-      const blockUser = await client.users.fetch(user.block_user_id);
-      if (blockUser) {
-        overwrites.push({
-          id: blockUser,
-          deny: [denyUserPermisson],
-        });
-      }
-    }
-    // -----------------------------------------------------------------------------------------------------------
-    // チャンネルの権限をセットする
-    // -----------------------------------------------------------------------------------------------------------
-    await channel.permissionOverwrites.set(overwrites);
+      ...denyOverwrites,
+    ]);
 
-    // -----------------------------------------------------------------------------------------------------------
-    // ブロックされたユーザーが既にVCにいる場合、VCから退出させる
-    // -----------------------------------------------------------------------------------------------------------
-    const blockedConnectedMembers = channel.members.filter((member) =>
-      allUsers.find((user) => member.id === user.block_user_id),
-    );
-    for (const [_, member] of blockedConnectedMembers) {
-      await member.voice.disconnect();
-    }
+    // 参加待ちチャンネルを作成/削除
+    await setApprovalWaitChannel(channel, denyOverwrites, approval);
   } else {
-    // -----------------------------------------------------------------------------------------------------------
     // チャンネルの権限をリセットする
-    // -----------------------------------------------------------------------------------------------------------
     await channel.edit({
       userLimit: channelEntry.maxUser,
-      permissionOverwrites: [...inherit],
+      permissionOverwrites: [...inheritOverwrites],
     });
+
+    // 参加待ちチャンネルを削除
+    await setApprovalWaitChannel(channel, [], false);
   }
+}
+
+/**
+ * ブロックしているユーザーがいた場合、チャンネルを表示しない
+ * @param ownerUser ユーザー
+ * @returns ブロックされているユーザーの権限
+ */
+async function getDenyOverwrites(
+  ownerUser: User,
+): Promise<OverwriteResolvable[]> {
+  const overwrites: OverwriteResolvable[] = [];
+
+  // ブロックしているユーザーを取得
+  const allUsers = await prisma.blackLists.findMany({
+    where: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      user_id: String(ownerUser.id),
+    },
+  });
+
+  for (const user of allUsers) {
+    // ユーザーをフェッチしないと内部でresolveに失敗してエラーが出る
+    const blockUser = await client.users.fetch(user.block_user_id);
+    if (blockUser) {
+      overwrites.push({
+        id: blockUser,
+        deny: [denyUserPermisson],
+      });
+    }
+  }
+
+  return overwrites;
 }
 
 /**
@@ -389,6 +421,96 @@ export function isApprovalChannel(channel: VoiceBasedChannel): boolean {
     channel.guild.roles.everyone,
   );
   return !everyonePermission.has(PermissionsBitField.Flags.Connect);
+}
+
+/**
+ * 参加待ちチャンネルを作成/削除する
+ * @param channel チャンネル
+ * @param denyOverwrites ブロックしているユーザーの権限
+ * @param approval 許可制VCかどうか
+ */
+export async function setApprovalWaitChannel(
+  channel: VoiceBasedChannel,
+  denyOverwrites: OverwriteResolvable[] = [],
+  approval: boolean,
+): Promise<void> {
+  // VCに紐づけされた参加待ちチャンネルを取得
+  const room = await prisma.roomLists.findUnique({
+    where: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      channel_id: String(channel.id),
+    },
+  });
+
+  // 参加待ちチャンネルが存在しない場合、作成
+  const waitChannelId = room?.wait_channel_id;
+  const waitChannel = waitChannelId
+    ? await channel.guild.channels.fetch(waitChannelId).catch(() => null)
+    : null;
+
+  if (approval && !waitChannel) {
+    // 許可制VCをONにした場合、参加待ちチャンネルを作成
+
+    // 親カテゴリから継承した権限を取得
+    const inheritOverwrites = getOwnCategoryPermission(channel);
+
+    // 参加待ちチャンネルを作成
+    const newWaitChannel = await channel.guild.channels.create({
+      type: ChannelType.GuildVoice,
+      name: '↓参加',
+      parent: channel.parent,
+      permissionOverwrites: [...inheritOverwrites, ...denyOverwrites],
+      position: channel.position,
+    });
+
+    // チャンネルに紐づけ
+    await prisma.roomLists.upsert({
+      /* eslint-disable @typescript-eslint/naming-convention */
+      where: {
+        channel_id: String(channel.id),
+      },
+      create: {
+        channel_id: String(channel.id),
+        wait_channel_id: String(newWaitChannel.id),
+      },
+      update: {
+        wait_channel_id: String(newWaitChannel.id),
+      },
+      /* eslint-enable @typescript-eslint/naming-convention */
+    });
+  } else if (!approval && waitChannel) {
+    // 許可制VCをOFFにした場合、参加待ちチャンネルを削除
+
+    await waitChannel.delete();
+    await prisma.roomLists.update({
+      /* eslint-disable @typescript-eslint/naming-convention */
+      where: {
+        channel_id: String(channel.id),
+      },
+      data: {
+        wait_channel_id: null,
+      },
+      /* eslint-enable @typescript-eslint/naming-convention */
+    });
+  }
+}
+
+/**
+ * チャンネルのカテゴリのBot自身の権限を取得
+ * @param channel チャンネル
+ * @returns 権限
+ */
+function getOwnCategoryPermission(
+  channel: VoiceBasedChannel,
+): OverwriteResolvable[] {
+  const me = channel.guild.members.me;
+  if (!channel.parent || !me) return [];
+
+  // カテゴリの上書き権限を取得
+  return [...channel.parent.permissionOverwrites.cache.values()].filter(
+    (permission) =>
+      me.id === permission.id || me.roles.cache.has(permission.id),
+  );
 }
 
 /**

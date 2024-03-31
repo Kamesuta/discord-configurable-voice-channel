@@ -16,3 +16,9 @@ model BlackLists {
   user_id String
   block_user_id String
 }
+
+model RoomLists {
+  id Int @default(autoincrement()) @id
+  channel_id String @unique
+  wait_channel_id String?
+}
