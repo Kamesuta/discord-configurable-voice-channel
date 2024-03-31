@@ -3,14 +3,19 @@ import { VoiceBasedChannel, VoiceState } from 'discord.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/log.js';
 import {
+  approvalRequestButtonRow,
+  approvalRequestEmbed,
   createChannelEmbed,
   editChannelPermission,
   freeChannelEmbed,
   getChannelOwner,
   noChannelOwnerEmbed,
   onlyBotKickEmbed,
+  prisma,
 } from './voiceController.js';
 import { onVoiceStatusChange, setVoiceStatus } from './voiceStatusHandler.js';
+
+import { client } from './index.js';
 
 /**
  * ボイスチャンネル作成機能
@@ -40,8 +45,6 @@ export async function onVoiceStateUpdate(
       (channelEntry) => channelEntry.channelId === newChannel?.id,
     )
   ) {
-    if (!newChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
-
     try {
       if (newChannel.members.size === 1) {
         // -----------------------------------------------------------------------------------------------------------
@@ -72,8 +75,6 @@ export async function onVoiceStateUpdate(
       (channelEntry) => channelEntry.channelId === oldChannel?.id,
     )
   ) {
-    if (!oldChannel) return; // ボイスチャンネルが取得できない場合は処理を終了
-
     try {
       // VCの全メンバー (コンフィグに入ったBotを除く)
       const membersAll = oldChannel.members;
@@ -121,6 +122,84 @@ export async function onVoiceStateUpdate(
         await oldChannel.send({
           embeds: [noChannelOwnerEmbed(member.user)],
         });
+      }
+    } catch (error) {
+      logger.error(error);
+    }
+  }
+
+  // -----------------------------------------------------------------------------------------------------------
+  // 待機VCに入った場合の処理
+  // -----------------------------------------------------------------------------------------------------------
+  if (oldChannel?.id !== newChannel?.id && newChannel?.id) {
+    try {
+      // 待機VCの情報を取得
+      const room = await prisma.roomLists.findFirst({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          wait_channel_id: newChannel.id,
+        },
+      });
+
+      // 待機VCの場合
+      if (room) {
+        // 待機VCに関連付けられたVCを取得
+        const channel = await client.channels.fetch(room.channel_id);
+        if (!channel || !channel.isVoiceBased()) return; // ボイスチャンネルが取得できない場合は処理を終了
+
+        // メッセージを投稿
+        await channel.send({
+          embeds: [approvalRequestEmbed(member.user, false)],
+          components: [approvalRequestButtonRow],
+        });
+      }
+    } catch (error) {
+      logger.error(error);
+    }
+  }
+
+  // -----------------------------------------------------------------------------------------------------------
+  // 待機VCから出た場合の処理
+  // -----------------------------------------------------------------------------------------------------------
+  if (oldChannel?.id !== newChannel?.id && oldChannel?.id) {
+    try {
+      // 待機VCの情報を取得
+      const room = await prisma.roomLists.findFirst({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          wait_channel_id: oldChannel.id,
+        },
+      });
+
+      // 待機VCの場合
+      if (room) {
+        // 待機VCから関連付けられたVCに移動した場合は処理を終了
+        const isApproved = room.channel_id === newChannel?.id;
+
+        // 待機VCに関連付けられたVCを取得
+        const channel = await client.channels.fetch(room.channel_id);
+        if (!channel || !channel.isVoiceBased()) return; // ボイスチャンネルが取得できない場合は処理を終了
+
+        // 直近10件のメッセージを取得
+        const messages = await channel.messages.fetch({ limit: 10 });
+
+        // 直近10件のメッセージからこのBotのメッセージで、抜けた人にメンションを送っているメッセージを見つける
+        const requestMessage = messages.find(
+          (message) =>
+            message.author.id === channel.client.user?.id &&
+            message.embeds[0].footer?.text ===
+              approvalRequestEmbed(member.user, isApproved).data.footer?.text,
+        );
+
+        if (isApproved) {
+          // メッセージを編集
+          await requestMessage?.edit({
+            embeds: [approvalRequestEmbed(member.user, isApproved)],
+          });
+        } else {
+          // 抜けた人は興味がないため、メッセージを削除
+          await requestMessage?.delete();
+        }
       }
     } catch (error) {
       logger.error(error);

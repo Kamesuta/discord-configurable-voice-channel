@@ -72,11 +72,17 @@ const buttonRow: ActionRowBuilder<ButtonBuilder> =
     new ButtonBuilder()
       .setCustomId('showBlackList')
       .setLabel('ブロックユーザー確認')
+      .setEmoji({
+        name: '📝',
+      })
       .setStyle(ButtonStyle.Success),
     // 許可制VCをON/OFFするためのボタン
     new ButtonBuilder()
       .setCustomId('toggleApproval')
       .setLabel('許可制VCをON/OFF')
+      .setEmoji({
+        name: '🔒',
+      })
       .setStyle(ButtonStyle.Primary),
   );
 
@@ -206,8 +212,60 @@ export const toggleApprovalEmbed = (enabled: boolean): EmbedBuilder =>
     .setDescription(
       `許可制VCが${
         enabled ? 'ON' : 'OFF'
-      }になりました\n「↓参加」VCに入るとリクエスト通知が来ます`,
+      }になりました\n「↓ 参加待機」VCに入るとリクエスト通知が来ます`,
     );
+
+/**
+ * 待機VCに入った際の埋め込みメッセージ
+ * @param request リクエストしたユーザー
+ * @param done リクエストが完了したかどうか
+ * @returns 埋め込みメッセージ
+ */
+export const approvalRequestEmbed = (
+  request: User,
+  done: boolean,
+): EmbedBuilder =>
+  new EmbedBuilder()
+    .setColor(parseInt(config.botColor.replace('#', ''), 16))
+    .setDescription(
+      `${done ? '✅️' : '➡️'} <@${
+        request.id
+      }> さんが参加をリクエストしています${done ? ' (許可済み)' : ''}`,
+    )
+    .setFooter({
+      text: '(Tips) 一度許可した後でも「拒否」ボタンでキックできます',
+    });
+
+/**
+ * リクエストのボタンの行
+ */
+export const approvalRequestButtonRow: ActionRowBuilder<ButtonBuilder> =
+  new ActionRowBuilder<ButtonBuilder>().setComponents(
+    // 許可ボタン
+    new ButtonBuilder()
+      .setCustomId('requestApprove')
+      .setLabel('許可')
+      .setEmoji({
+        name: '✅',
+      })
+      .setStyle(ButtonStyle.Success),
+    // 拒否ボタン
+    new ButtonBuilder()
+      .setCustomId('requestReject')
+      .setLabel('拒否')
+      .setEmoji({
+        name: '❌',
+      })
+      .setStyle(ButtonStyle.Primary),
+    // ブロックボタン
+    new ButtonBuilder()
+      .setCustomId('requestBlock')
+      .setLabel('ブロック')
+      .setEmoji({
+        name: '🚫',
+      })
+      .setStyle(ButtonStyle.Secondary),
+  );
 
 /**
  * 人数制限の変更を行う際のモーダル
@@ -457,7 +515,7 @@ export async function setApprovalWaitChannel(
     // 参加待ちチャンネルを作成
     const newWaitChannel = await channel.guild.channels.create({
       type: ChannelType.GuildVoice,
-      name: '↓参加',
+      name: '↓ 参加待機',
       parent: channel.parent,
       permissionOverwrites: [...inheritOverwrites, ...denyOverwrites],
       position: channel.position,
