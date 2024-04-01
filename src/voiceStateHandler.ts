@@ -3,13 +3,15 @@ import { VoiceBasedChannel, VoiceState } from 'discord.js';
 import { config, getChannelEntry } from './utils/config.js';
 import { logger } from './utils/log.js';
 import {
-  approvalRequestButtonRow,
+  getApprovalRelatedVoiceChannel,
   approvalRequestEmbed,
+  approvalRequestButtonRow,
   approvalRequestTips,
+} from './voiceApproval.js';
+import {
   createChannelEmbed,
   editChannelPermission,
   freeChannelEmbed,
-  getApprovalRelatedVoiceChannel,
   getChannelOwner,
   noChannelOwnerEmbed,
   onlyBotKickEmbed,
