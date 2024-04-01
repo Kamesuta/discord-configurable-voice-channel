@@ -18,6 +18,7 @@ import {
   ButtonStyle,
   OverwriteType,
   GuildMember,
+  OverwriteResolvable,
 } from 'discord.js';
 
 import { config, getChannelEntry } from './utils/config.js';
@@ -296,11 +297,19 @@ export async function editChannelPermission(
     }
 
     // 許可制VCの場合、許可されたユーザーを取得
-    const approvedOverwrites = [
+    const approvedOverwrites: OverwriteResolvable[] = [
       ...channel.permissionOverwrites.cache.values(),
     ].filter((permission) =>
       permission.allow.has(allowUserApprovalChannelPermisson),
     );
+
+    // 既に参加しているユーザーを許可
+    for (const member of channel.members.values()) {
+      approvedOverwrites.push({
+        id: member.id,
+        allow: [allowUserPermisson],
+      });
+    }
 
     // ブロックしているユーザーがいた場合、チャンネルを表示しない
     const denyOverwrites = await getDenyOverwrites(ownerUser);

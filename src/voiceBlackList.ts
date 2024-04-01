@@ -30,6 +30,7 @@ export const allowUserPermisson: bigint[] = [
  */
 export const allowCreateUserPermisson: bigint[] = [
   PermissionsBitField.Flags.PrioritySpeaker, // 優先スピーカー
+  PermissionsBitField.Flags.Connect, // 接続
 ];
 
 /**

@@ -47,9 +47,9 @@ export const toggleApprovalEmbed = (enabled: boolean): EmbedBuilder =>
     .setColor(parseInt(config.botColor.replace('#', ''), 16))
     .setTitle('許可制VCの設定が変更されました')
     .setDescription(
-      `許可制VCが${
-        enabled ? 'ON' : 'OFF'
-      }になりました\n「↓ 参加待機」VCに入るとリクエスト通知が来ます`,
+      enabled
+        ? '許可制VCがONになりました\n「↓ 参加待機」VCに入るとリクエスト通知が来ます'
+        : '許可制VCがOFFになりました',
     );
 
 /**
@@ -176,7 +176,7 @@ export async function setApprovalWaitChannel(
         name: '↓ 参加待機',
         parent: channel.parent,
         permissionOverwrites: [...inheritOverwrites, ...denyOverwrites],
-        position: channel.position,
+        position: channel.rawPosition - 1, // 本VCの上に配置
       });
 
       // チャンネルに紐づけ
