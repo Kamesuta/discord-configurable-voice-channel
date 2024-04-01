@@ -1,4 +1,4 @@
-import { Interaction, PermissionsBitField } from 'discord.js';
+import { Interaction } from 'discord.js';
 
 import {
   toggleApproval,
@@ -6,13 +6,15 @@ import {
   rejectRequest,
 } from './voiceApproval.js';
 import {
-  MenuInteraction,
+  addUserToBlackList,
+  removeUserFromBlackList,
+  showBlackList,
+} from './voiceBlackList.js';
+import {
   editChannelPermission,
   getChannelOwner,
   getConnectedEditableChannel,
   onOperationMenu,
-  prisma,
-  showBlackList,
   transferedOwnershipEmbed,
 } from './voiceController.js';
 import { onVoiceStatusChange } from './voiceStatusHandler.js';
@@ -192,74 +194,7 @@ export async function onVoiceCreateInteraction(
       case 'userBlackList': {
         if (!interaction.isUserSelectMenu()) return;
 
-        await interaction.deferReply({ ephemeral: true });
-
-        const userId: string = String(interaction.user.id);
-        const selectedMemberNum = interaction.values.length;
-
-        // ブロックしたユーザーを取得
-        const allUsers = await prisma.blackLists.findMany({
-          where: {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            user_id: String(interaction.user.id),
-          },
-        });
-
-        // ブロック処理
-        const alreadyBlockedUsers: string[] = [];
-        const privilegedUsers: string[] = [];
-        for (let i = 0; i < selectedMemberNum; i++) {
-          const blockUserId: string = String(interaction.values[i]);
-          // Prismaを使ってBlackListsテーブルにレコードを作成
-          if (
-            allUsers.find((user) => String(user.block_user_id) === blockUserId)
-          ) {
-            alreadyBlockedUsers.push(blockUserId);
-          } else if (await validatePrivilegedUser(interaction, blockUserId)) {
-            privilegedUsers.push(blockUserId);
-          } else {
-            await prisma.blackLists.create({
-              data: {
-                /* eslint-disable @typescript-eslint/naming-convention */
-                user_id: String(userId),
-                block_user_id: String(blockUserId),
-                /* eslint-enable @typescript-eslint/naming-convention */
-              },
-            });
-          }
-        }
-
-        // チャンネルの権限を更新
-        const channel = await getConnectedEditableChannel(interaction).catch(
-          () => {},
-        );
-        if (channel) {
-          await editChannelPermission(channel, interaction.user);
-        }
-
-        // リプライを送信
-        const blockedUserNum =
-          selectedMemberNum -
-          privilegedUsers.length -
-          alreadyBlockedUsers.length;
-        let replyMessage = `選択した${selectedMemberNum}人${
-          selectedMemberNum === blockedUserNum ? '' : `の内${blockedUserNum}人`
-        }のユーザーのブロックが完了しました。\n`;
-        if (privilegedUsers.length > 0) {
-          const errorUsersString = privilegedUsers
-            .map((userId) => `<@${userId}>`)
-            .join(', ');
-          replyMessage += `${errorUsersString} はブロックできませんでした。\n`;
-        }
-        if (alreadyBlockedUsers.length > 0) {
-          const errorUsersString = alreadyBlockedUsers
-            .map((userId) => `<@${userId}>`)
-            .join(', ');
-          replyMessage += `${errorUsersString} は既にブロックされているためブロックできませんでした。\n`;
-        }
-        await interaction.editReply({
-          content: replyMessage,
-        });
+        await addUserToBlackList(interaction);
         break;
       }
 
@@ -269,45 +204,7 @@ export async function onVoiceCreateInteraction(
       case 'userBlackReleaseList': {
         if (!interaction.isUserSelectMenu()) return;
 
-        await interaction.deferReply({ ephemeral: true });
-
-        // ブロックしたユーザーを取得
-        const userId: string = String(interaction.user.id);
-        const allUsers = await prisma.blackLists.findMany({
-          where: {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            user_id: String(interaction.user.id),
-          },
-        });
-        // ブロック解除処理
-        for (let i = 0; i < interaction.values.length; i++) {
-          const blockUserId: string = String(interaction.values[i]);
-          for (let i = 0; i < allUsers.length; i++) {
-            if (String(allUsers[i].block_user_id) === blockUserId) {
-              await prisma.blackLists.deleteMany({
-                where: {
-                  /* eslint-disable @typescript-eslint/naming-convention */
-                  user_id: String(userId),
-                  block_user_id: String(blockUserId),
-                  /* eslint-enable @typescript-eslint/naming-convention */
-                },
-              });
-            }
-          }
-        }
-
-        // チャンネルの権限を更新
-        const channel = await getConnectedEditableChannel(interaction).catch(
-          () => {},
-        );
-        if (channel) {
-          await editChannelPermission(channel, interaction.user);
-        }
-
-        // リプライを送信
-        await interaction.editReply({
-          content: '選択したユーザーのブロック解除が完了しました',
-        });
+        await removeUserFromBlackList(interaction);
         break;
       }
 
@@ -354,25 +251,4 @@ export async function onVoiceCreateInteraction(
   } catch (error) {
     console.log(error);
   }
-}
-
-/**
- * ブロックするユーザーの特権チェックを行う。
- * @param interaction インタラクション
- * @param blockUserId ブロックするユーザーのID
- * @returns 特権があればtrue、なければfalse
- */
-async function validatePrivilegedUser(
-  interaction: MenuInteraction,
-  blockUserId: string,
-): Promise<boolean> {
-  // 自身のIDを取得
-  const userId: string = String(interaction.user.id);
-  // メンバーを取得
-  const member = await interaction.guild?.members.fetch(blockUserId);
-  // ブロックするユーザーが自分自身か、ブロックするユーザーがVC移動権限を持っているか確認
-  return (
-    blockUserId === userId ||
-    member?.permissions.has(PermissionsBitField.Flags.MoveMembers) === true
-  );
 }

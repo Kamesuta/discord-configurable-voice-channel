@@ -8,7 +8,6 @@ import {
   TextInputBuilder,
   TextInputStyle,
   UserSelectMenuInteraction,
-  OverwriteResolvable,
   VoiceBasedChannel,
   User,
   ButtonInteraction,
@@ -22,7 +21,18 @@ import {
 } from 'discord.js';
 
 import { config, getChannelEntry } from './utils/config.js';
-import { isApprovalChannel, setApprovalWaitChannel } from './voiceApproval.js';
+import {
+  allowUserApprovalChannelPermisson,
+  denyUserApprovalChannelPermisson,
+  isApprovalChannel,
+  setApprovalWaitChannel,
+} from './voiceApproval.js';
+import {
+  allowCreateUserPermisson,
+  allowUserPermisson,
+  getDenyOverwrites,
+  getOwnCategoryPermission,
+} from './voiceBlackList.js';
 
 import { client } from './index.js';
 
@@ -111,41 +121,6 @@ const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
   );
 
 /**
- * ボイスチャンネルを使用するユーザーの権限
- */
-const allowUserPermisson: bigint[] = [
-  PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
-];
-
-/**
- * ボイスチャンネルを作成したユーザーの追加管理権限
- */
-const allowCreateUserPermisson: bigint[] = [
-  PermissionsBitField.Flags.PrioritySpeaker, // 優先スピーカー
-];
-
-/**
- * 許可制VCの許可された人の権限
- */
-export const allowUserApprovalChannelPermisson: bigint[] = [
-  PermissionsBitField.Flags.Connect, // 接続
-];
-
-/**
- * ボイスチャンネルを使用させなくさせるための権限
- */
-const denyUserPermisson: bigint[] = [
-  PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
-];
-
-/**
- * 許可制VCのデフォルト権限
- */
-const denyUserApprovalChannelPermisson: bigint[] = [
-  PermissionsBitField.Flags.Connect, // 接続
-];
-
-/**
  * チャンネルに初めて入った際の埋め込みメッセージ
  */
 export const createChannelEmbed: EmbedBuilder = new EmbedBuilder()
@@ -191,28 +166,6 @@ export const transferedOwnershipEmbed = (user: User): EmbedBuilder =>
     .setTitle('VCのオーナーが替わりました')
     .setDescription(
       `今後は<@${user.id}>が<#${config.controlPanelChannelId}>で人数制限やブロック設定を行うことが出来ます`,
-    );
-
-/**
- * ブロックしているユーザーを表示する際の埋め込みメッセージ
- */
-const showBlackListEmbed: EmbedBuilder = new EmbedBuilder()
-  .setColor(parseInt(config.botColor.replace('#', ''), 16))
-  .setTitle('ブロックしているユーザー');
-
-/**
- * 許可制VCをON/OFFする際のメッセージ
- * @param enabled 許可制VCがONかOFFか
- * @returns 埋め込みメッセージ
- */
-export const toggleApprovalEmbed = (enabled: boolean): EmbedBuilder =>
-  new EmbedBuilder()
-    .setColor(parseInt(config.botColor.replace('#', ''), 16))
-    .setTitle('許可制VCの設定が変更されました')
-    .setDescription(
-      `許可制VCが${
-        enabled ? 'ON' : 'OFF'
-      }になりました\n「↓ 参加待機」VCに入るとリクエスト通知が来ます`,
     );
 
 /**
@@ -381,90 +334,6 @@ export async function editChannelPermission(
     // 参加待ちチャンネルを削除
     await setApprovalWaitChannel(channel, [], false);
   }
-}
-
-/**
- * ブロックしているユーザーがいた場合、チャンネルを表示しない
- * @param ownerUser ユーザー
- * @returns ブロックされているユーザーの権限
- */
-async function getDenyOverwrites(
-  ownerUser: User,
-): Promise<OverwriteResolvable[]> {
-  const overwrites: OverwriteResolvable[] = [];
-
-  // ブロックしているユーザーを取得
-  const allUsers = await prisma.blackLists.findMany({
-    where: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      user_id: String(ownerUser.id),
-    },
-  });
-
-  for (const user of allUsers) {
-    // ユーザーをフェッチしないと内部でresolveに失敗してエラーが出る
-    const blockUser = await client.users.fetch(user.block_user_id);
-    if (blockUser) {
-      overwrites.push({
-        id: blockUser,
-        deny: [denyUserPermisson],
-      });
-    }
-  }
-
-  return overwrites;
-}
-
-/**
- * チャンネルのカテゴリのBot自身の権限を取得
- * @param channel チャンネル
- * @returns 権限
- */
-export function getOwnCategoryPermission(
-  channel: VoiceBasedChannel,
-): OverwriteResolvable[] {
-  const me = channel.guild.members.me;
-  if (!channel.parent || !me) return [];
-
-  // カテゴリの上書き権限を取得
-  return [...channel.parent.permissionOverwrites.cache.values()].filter(
-    (permission) =>
-      me.id === permission.id || me.roles.cache.has(permission.id),
-  );
-}
-
-/**
- * ブロックしているユーザーを確認
- * @param interaction インタラクション
- * @param user ユーザー
- */
-export async function showBlackList(
-  interaction: MenuInteraction,
-  user: User,
-): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
-  const allUsers = await prisma.blackLists.findMany({
-    where: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      user_id: String(user.id),
-    },
-  });
-
-  // ブロックしているユーザーリストの文字列を作成
-  const blockUserList: string =
-    allUsers.length > 0
-      ? allUsers.map((user) => `<@${user.block_user_id}>`).join('\n')
-      : 'なし';
-
-  // リプライを送信
-  await interaction.editReply({
-    embeds: [
-      showBlackListEmbed.setDescription(blockUserList).setAuthor({
-        name: user.username,
-        iconURL: user.avatarURL() ?? undefined,
-      }),
-    ],
-  });
 }
 
 /**

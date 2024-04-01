@@ -13,17 +13,44 @@ import {
 } from 'discord.js';
 
 import { config, getChannelEntry } from './utils/config.js';
+import { getOwnCategoryPermission } from './voiceBlackList.js';
 import {
-  allowUserApprovalChannelPermisson,
   editChannelPermission,
   getConnectedEditableChannel,
-  getOwnCategoryPermission,
   MenuInteraction,
   prisma,
-  toggleApprovalEmbed,
 } from './voiceController.js';
 
 import { client } from './index.js';
+
+/**
+ * 許可制VCの許可された人の権限
+ */
+export const allowUserApprovalChannelPermisson: bigint[] = [
+  PermissionsBitField.Flags.Connect, // 接続
+];
+
+/**
+ * 許可制VCのデフォルト権限
+ */
+export const denyUserApprovalChannelPermisson: bigint[] = [
+  PermissionsBitField.Flags.Connect, // 接続
+];
+
+/**
+ * 許可制VCをON/OFFする際のメッセージ
+ * @param enabled 許可制VCがONかOFFか
+ * @returns 埋め込みメッセージ
+ */
+export const toggleApprovalEmbed = (enabled: boolean): EmbedBuilder =>
+  new EmbedBuilder()
+    .setColor(parseInt(config.botColor.replace('#', ''), 16))
+    .setTitle('許可制VCの設定が変更されました')
+    .setDescription(
+      `許可制VCが${
+        enabled ? 'ON' : 'OFF'
+      }になりました\n「↓ 参加待機」VCに入るとリクエスト通知が来ます`,
+    );
 
 /**
  * Tips (Embed識別用)
@@ -120,36 +147,54 @@ export async function setApprovalWaitChannel(
     ? await channel.guild.channels.fetch(waitChannelId).catch(() => null)
     : null;
 
-  if (approval && !waitChannel) {
-    // 許可制VCをONにした場合、参加待ちチャンネルを作成
-
+  if (approval) {
     // 親カテゴリから継承した権限を取得
     const inheritOverwrites = getOwnCategoryPermission(channel);
 
-    // 参加待ちチャンネルを作成
-    const newWaitChannel = await channel.guild.channels.create({
-      type: ChannelType.GuildVoice,
-      name: '↓ 参加待機',
-      parent: channel.parent,
-      permissionOverwrites: [...inheritOverwrites, ...denyOverwrites],
-      position: channel.position,
-    });
+    if (waitChannel) {
+      if (waitChannel.isVoiceBased()) {
+        // 既に参加待ちチャンネルが存在する場合、権限を更新
+        await waitChannel.permissionOverwrites.set([
+          ...inheritOverwrites,
+          ...denyOverwrites,
+        ]);
 
-    // チャンネルに紐づけ
-    await prisma.roomLists.upsert({
-      /* eslint-disable @typescript-eslint/naming-convention */
-      where: {
-        channel_id: String(channel.id),
-      },
-      create: {
-        channel_id: String(channel.id),
-        wait_channel_id: String(newWaitChannel.id),
-      },
-      update: {
-        wait_channel_id: String(newWaitChannel.id),
-      },
-      /* eslint-enable @typescript-eslint/naming-convention */
-    });
+        // 既にブロックされたユーザーがいる場合、キック
+        const blockedConnectedMembers = channel.members.filter((member) =>
+          denyOverwrites.find((overwrite) => member.id === overwrite.id),
+        );
+        for (const [_, member] of blockedConnectedMembers) {
+          await member.voice.disconnect();
+        }
+      }
+    } else {
+      // 許可制VCをONにした場合、参加待ちチャンネルを作成
+
+      // 参加待ちチャンネルを作成
+      const newWaitChannel = await channel.guild.channels.create({
+        type: ChannelType.GuildVoice,
+        name: '↓ 参加待機',
+        parent: channel.parent,
+        permissionOverwrites: [...inheritOverwrites, ...denyOverwrites],
+        position: channel.position,
+      });
+
+      // チャンネルに紐づけ
+      await prisma.roomLists.upsert({
+        /* eslint-disable @typescript-eslint/naming-convention */
+        where: {
+          channel_id: String(channel.id),
+        },
+        create: {
+          channel_id: String(channel.id),
+          wait_channel_id: String(newWaitChannel.id),
+        },
+        update: {
+          wait_channel_id: String(newWaitChannel.id),
+        },
+        /* eslint-enable @typescript-eslint/naming-convention */
+      });
+    }
   } else if (!approval && waitChannel) {
     // 許可制VCをOFFにした場合、参加待ちチャンネルを削除
 

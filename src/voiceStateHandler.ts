@@ -7,9 +7,9 @@ import {
   approvalRequestEmbed,
   approvalRequestButtonRow,
   approvalRequestTips,
+  allowUserApprovalChannelPermisson,
 } from './voiceApproval.js';
 import {
-  allowUserApprovalChannelPermisson,
   createChannelEmbed,
   editChannelPermission,
   freeChannelEmbed,
