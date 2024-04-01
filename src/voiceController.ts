@@ -337,7 +337,7 @@ export async function editChannelPermission(
     // チャンネルの権限をリセットする
     await channel.edit({
       userLimit: channelEntry.maxUser,
-      permissionOverwrites: [...inheritOverwrites],
+      permissionOverwrites: inheritOverwrites,
     });
 
     // 参加待ちチャンネルを削除

@@ -175,9 +175,15 @@ export async function setApprovalWaitChannel(
         type: ChannelType.GuildVoice,
         name: '↓ 参加待機',
         parent: channel.parent,
-        permissionOverwrites: [...inheritOverwrites, ...denyOverwrites],
         position: channel.rawPosition - 1, // 本VCの上に配置
       });
+
+      // 参加待ちチャンネルに権限を設定
+      // ※一度チャンネルを作成してから権限を設定しないとエラーが発生するため注意
+      await newWaitChannel.permissionOverwrites.set([
+        ...inheritOverwrites,
+        ...denyOverwrites,
+      ]);
 
       // チャンネルに紐づけ
       await prisma.roomLists.upsert({
@@ -215,12 +221,12 @@ export async function setApprovalWaitChannel(
 /**
  * 許可ユーザーを追加/削除する
  * @param channel チャンネル
- * @param addUsers 追加するユーザー
+ * @param blockUsers 追加するユーザー
  * @param removeUsers 削除するユーザー
  */
 export async function editApprovalUser(
   channel: VoiceBasedChannel,
-  addUsers: User[],
+  blockUsers: User[],
   removeUsers: User[],
 ): Promise<void> {
   // 許可制VCの場合、許可されたユーザーを取得
@@ -236,15 +242,13 @@ export async function editApprovalUser(
   );
 
   // 追加するユーザーの権限を追加
-  for (const user of addUsers) {
-    overwrites.push({
-      id: user.id,
-      allow: [allowUserApprovalChannelPermisson],
-    });
-  }
+  const allowOverwrites = blockUsers.map((user) => ({
+    id: user.id,
+    allow: [allowUserApprovalChannelPermisson],
+  }));
 
   // チャンネルの権限をセットする
-  await channel.permissionOverwrites.set(overwrites);
+  await channel.permissionOverwrites.set([...overwrites, ...allowOverwrites]);
 }
 
 /**
