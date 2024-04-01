@@ -1,21 +1,20 @@
 import { VoiceBasedChannel, VoiceState } from 'discord.js';
 
-import { config } from './utils/config.js';
+import { config, getChannelEntry } from './utils/config.js';
 import { logger } from './utils/log.js';
 import {
   approvalRequestButtonRow,
   approvalRequestEmbed,
+  approvalRequestTips,
   createChannelEmbed,
   editChannelPermission,
   freeChannelEmbed,
+  getApprovalRelatedVoiceChannel,
   getChannelOwner,
   noChannelOwnerEmbed,
   onlyBotKickEmbed,
-  prisma,
 } from './voiceController.js';
 import { onVoiceStatusChange, setVoiceStatus } from './voiceStatusHandler.js';
-
-import { client } from './index.js';
 
 /**
  * ボイスチャンネル作成機能
@@ -41,9 +40,7 @@ export async function onVoiceStateUpdate(
   if (
     oldChannel?.id !== newChannel?.id &&
     newChannel?.id &&
-    config.customVcList.find(
-      (channelEntry) => channelEntry.channelId === newChannel?.id,
-    )
+    getChannelEntry(newChannel.id)
   ) {
     try {
       if (newChannel.members.size === 1) {
@@ -71,9 +68,7 @@ export async function onVoiceStateUpdate(
   if (
     oldChannel?.id !== newChannel?.id &&
     oldChannel?.id &&
-    config.customVcList.find(
-      (channelEntry) => channelEntry.channelId === oldChannel?.id,
-    )
+    getChannelEntry(oldChannel.id)
   ) {
     try {
       // VCの全メンバー (コンフィグに入ったBotを除く)
@@ -134,19 +129,10 @@ export async function onVoiceStateUpdate(
   if (oldChannel?.id !== newChannel?.id && newChannel?.id) {
     try {
       // 待機VCの情報を取得
-      const room = await prisma.roomLists.findFirst({
-        where: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          wait_channel_id: newChannel.id,
-        },
-      });
+      const channel = await getApprovalRelatedVoiceChannel(newChannel);
 
       // 待機VCの場合
-      if (room) {
-        // 待機VCに関連付けられたVCを取得
-        const channel = await client.channels.fetch(room.channel_id);
-        if (!channel || !channel.isVoiceBased()) return; // ボイスチャンネルが取得できない場合は処理を終了
-
+      if (channel) {
         // メッセージを投稿
         await channel.send({
           embeds: [approvalRequestEmbed(member.user, false)],
@@ -164,22 +150,10 @@ export async function onVoiceStateUpdate(
   if (oldChannel?.id !== newChannel?.id && oldChannel?.id) {
     try {
       // 待機VCの情報を取得
-      const room = await prisma.roomLists.findFirst({
-        where: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          wait_channel_id: oldChannel.id,
-        },
-      });
+      const channel = await getApprovalRelatedVoiceChannel(oldChannel);
 
       // 待機VCの場合
-      if (room) {
-        // 待機VCから関連付けられたVCに移動した場合は処理を終了
-        const isApproved = room.channel_id === newChannel?.id;
-
-        // 待機VCに関連付けられたVCを取得
-        const channel = await client.channels.fetch(room.channel_id);
-        if (!channel || !channel.isVoiceBased()) return; // ボイスチャンネルが取得できない場合は処理を終了
-
+      if (channel) {
         // 直近10件のメッセージを取得
         const messages = await channel.messages.fetch({ limit: 10 });
 
@@ -187,14 +161,13 @@ export async function onVoiceStateUpdate(
         const requestMessage = messages.find(
           (message) =>
             message.author.id === channel.client.user?.id &&
-            message.embeds[0].footer?.text ===
-              approvalRequestEmbed(member.user, isApproved).data.footer?.text,
+            message.embeds[0].footer?.text === approvalRequestTips,
         );
 
-        if (isApproved) {
-          // メッセージを編集
+        if (channel.id === newChannel?.id) {
+          // 待機VCから関連付けられたVCに移動した場合はメッセージを✅️に変更
           await requestMessage?.edit({
-            embeds: [approvalRequestEmbed(member.user, isApproved)],
+            embeds: [approvalRequestEmbed(member.user, true)],
           });
         } else {
           // 抜けた人は興味がないため、メッセージを削除

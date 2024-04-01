@@ -7,6 +7,19 @@ import { parse } from 'toml';
 import { logger } from './log.js';
 import { getWorkdirPath } from './workdir.js';
 
+/**
+ * カスタムVCのエントリ
+ */
+export interface ChannelEntry {
+  /**
+   * カスタムVCのID
+   */
+  channelId: string;
+  /**
+   * デフォルトの人数
+   */
+  maxUser: number;
+}
 
 /**
  * Structure of the configuration file
@@ -28,16 +41,7 @@ export interface Config {
   /**
    * カスタムVCのチャンネルIDリスト
    */
-  customVcList: {
-    /**
-     * カスタムVCのID
-     */
-    channelId: string;
-    /**
-     * デフォルトの人数
-     */
-    maxUser: number;
-  }[];
+  customVcList: ChannelEntry[];
   /**
    * 読み上げBotのIDリスト
    */
@@ -96,5 +100,14 @@ assert(
   config.readBotList &&
     Array.isArray(config.readBotList) &&
     config.readBotList.every((id) => typeof id === 'object'),
-    'readBotList is invalid.',
+  'readBotList is invalid.',
 );
+
+/**
+ * カスタムVCのエントリを取得する
+ * @param channelId チャンネルID
+ * @returns カスタムVCのエントリ
+ */
+export function getChannelEntry(channelId: string): ChannelEntry | undefined {
+  return config.customVcList.find((entry) => entry.channelId === channelId);
+}

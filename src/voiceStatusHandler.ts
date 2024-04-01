@@ -5,7 +5,7 @@ import {
   VoiceBasedChannel,
 } from 'discord.js';
 
-import { config } from './utils/config.js';
+import { config, getChannelEntry } from './utils/config.js';
 import { getChannelOwner } from './voiceController.js';
 
 import { client } from './index.js';
@@ -57,11 +57,7 @@ export function registerVoiceStatusHandler(): void {
     // ステータスが変更されたチャンネルのIDリストを取得
     const channel = client.channels.cache.get(data.id);
     // カスタムVCのチャンネルでない場合は処理を終了
-    if (
-      !channel ||
-      !channel.isVoiceBased() ||
-      !config.customVcList.some((vc) => vc.channelId === channel.id)
-    ) {
+    if (!channel || !channel.isVoiceBased() || !getChannelEntry(channel.id)) {
       return;
     }
 

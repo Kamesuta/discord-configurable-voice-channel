@@ -20,9 +20,10 @@ import {
   OverwriteType,
   GuildMember,
   ChannelType,
+  Message,
 } from 'discord.js';
 
-import { config } from './utils/config.js';
+import { config, getChannelEntry } from './utils/config.js';
 
 import { client } from './index.js';
 
@@ -216,6 +217,12 @@ export const toggleApprovalEmbed = (enabled: boolean): EmbedBuilder =>
     );
 
 /**
+ * Tips (Embed識別用)
+ */
+export const approvalRequestTips =
+  '(Tips) 一度許可した後でも「拒否」ボタンでキックできます';
+
+/**
  * 待機VCに入った際の埋め込みメッセージ
  * @param request リクエストしたユーザー
  * @param done リクエストが完了したかどうか
@@ -233,7 +240,7 @@ export const approvalRequestEmbed = (
       }> さんが参加をリクエストしています${done ? ' (許可済み)' : ''}`,
     )
     .setFooter({
-      text: '(Tips) 一度許可した後でも「拒否」ボタンでキックできます',
+      text: approvalRequestTips,
     });
 
 /**
@@ -382,9 +389,7 @@ export async function editChannelPermission(
   approval?: boolean,
 ): Promise<void> {
   // コンフィグからchannelEntryを取得します
-  const channelEntry = config.customVcList.find(
-    (entry) => entry.channelId === channel.id,
-  );
+  const channelEntry = getChannelEntry(channel.id);
   if (!channelEntry) return;
 
   // 親カテゴリから継承した権限を取得
@@ -551,6 +556,95 @@ export async function setApprovalWaitChannel(
       /* eslint-enable @typescript-eslint/naming-convention */
     });
   }
+}
+
+/**
+ * 許可ユーザーを追加/削除する
+ * @param channel チャンネル
+ * @param addUsers 追加するユーザー
+ * @param removeUsers 削除するユーザー
+ */
+export async function editApprovalUser(
+  channel: VoiceBasedChannel,
+  addUsers: User[],
+  removeUsers: User[],
+): Promise<void> {
+  // 許可制VCの場合、許可されたユーザーを取得
+  const overwrites: OverwriteResolvable[] = [
+    ...channel.permissionOverwrites.cache.values(),
+  ].filter(
+    (permission) =>
+      // 削除するユーザーがいた場合、権限を削除
+      !(
+        removeUsers.find((user) => user.id === permission.id) &&
+        permission.allow.has(allowUserApprovalChannelPermisson)
+      ),
+  );
+
+  // 追加するユーザーの権限を追加
+  for (const user of addUsers) {
+    overwrites.push({
+      id: user.id,
+      allow: [allowUserApprovalChannelPermisson],
+    });
+  }
+
+  // チャンネルの権限をセットする
+  await channel.permissionOverwrites.set(overwrites);
+}
+
+/**
+ * 許可リクエストのEmbedか判定
+ * @param message メッセージ
+ * @returns 許可リクエストのEmbedかどうか
+ */
+export function isApprovalRequestEmbed(message: Message): boolean {
+  return message.embeds[0]?.data.footer?.text === approvalRequestTips;
+}
+
+/**
+ * Embedに含まれるユーザーを取得
+ * @param message メッセージ
+ * @returns ユーザー
+ */
+export function getUserFromApprovalRequestEmbed(
+  message: Message,
+): User | undefined {
+  // 許可リクエストのEmbedか判定
+  if (!isApprovalRequestEmbed(message)) return;
+
+  // 説明文に含まれるメンションからユーザーを取得
+  const requestUserId =
+    message.embeds[0]?.data.description?.match(/<@!?(\d+)>/);
+  if (!requestUserId) return;
+
+  return client.users.resolve(requestUserId[1]) ?? undefined;
+}
+
+/**
+ * 待機VCに関連付けられたVCを取得
+ * @param approvalChannel 待機VC
+ * @returns 関連付けられたVC
+ */
+export async function getApprovalRelatedVoiceChannel(
+  approvalChannel: VoiceBasedChannel,
+): Promise<VoiceBasedChannel | undefined> {
+  // 待機VCの情報を取得
+  const room = await prisma.roomLists.findFirst({
+    where: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      wait_channel_id: approvalChannel.id,
+    },
+  });
+
+  // 待機VCじゃない場合は処理を終了
+  if (!room) return;
+
+  // 待機VCに関連付けられたVCを取得
+  const channel = await client.channels.fetch(room.channel_id);
+  if (!channel || !channel.isVoiceBased()) return; // ボイスチャンネルが取得できない場合は処理を終了
+
+  return channel;
 }
 
 /**

@@ -4,11 +4,14 @@ import {
   VoiceBasedChannel,
 } from 'discord.js';
 
-import { config } from './utils/config.js';
+import { getChannelEntry } from './utils/config.js';
 import {
   MenuInteraction,
+  editApprovalUser,
   editChannelPermission,
+  getApprovalRelatedVoiceChannel,
   getChannelOwner,
+  getUserFromApprovalRequestEmbed,
   isApprovalChannel,
   onOperationMenu,
   prisma,
@@ -331,6 +334,138 @@ export async function onVoiceCreateInteraction(
         await toggleApproval(interaction);
         break;
       }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // 許可ボタンの処理
+      // -----------------------------------------------------------------------------------------------------------
+      case 'requestApprove': {
+        if (!interaction.isButton()) return;
+
+        await interaction.deferReply({ ephemeral: true });
+
+        // 入っているVCのチャンネルを取得し、権限チェックを行う
+        const channel = await getConnectedEditableChannel(
+          interaction,
+          true,
+        ).catch(async (error: Error) => {
+          // エラーが発生した場合、エラーメッセージを返信して処理を終了
+          await interaction.reply({
+            content: error.message,
+            ephemeral: true,
+          });
+        });
+        if (!channel) return;
+
+        // 許可リクエストを送った人を取得
+        const requestUser = getUserFromApprovalRequestEmbed(
+          interaction.message,
+        );
+        const requestMember = !requestUser
+          ? undefined
+          : await interaction.guild?.members.fetch(requestUser);
+        if (!requestMember) {
+          await interaction.editReply({
+            content: '許可リクエストを送ったユーザーが見つかりませんでした',
+          });
+          return;
+        }
+
+        // 許可リクエストを送った人が待機VCにいるか確認
+        const voiceChannel = !requestMember.voice.channel
+          ? undefined
+          : await getApprovalRelatedVoiceChannel(requestMember.voice.channel);
+        if (!voiceChannel || voiceChannel.id !== channel.id) {
+          await interaction.editReply({
+            content: '許可リクエストを送ったユーザーが待機VCにいませんでした',
+          });
+          return;
+        }
+
+        // 許可リクエストを送った人を許可リストに追加
+        await editApprovalUser(channel, [requestMember.user], []);
+        // VCを移動
+        await requestMember.voice.setChannel(channel);
+
+        // リプライを送信
+        await interaction.editReply({
+          content: `<@${requestMember.id}> を許可しました`,
+          allowedMentions: { users: [] }, // メンションを抑制
+        });
+
+        break;
+      }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // 拒否ボタンの処理
+      // -----------------------------------------------------------------------------------------------------------
+      case 'requestReject': {
+        if (!interaction.isButton()) return;
+
+        await interaction.deferReply({ ephemeral: true });
+
+        // 入っているVCのチャンネルを取得し、権限チェックを行う
+        const channel = await getConnectedEditableChannel(
+          interaction,
+          true,
+        ).catch(async (error: Error) => {
+          // エラーが発生した場合、エラーメッセージを返信して処理を終了
+          await interaction.reply({
+            content: error.message,
+            ephemeral: true,
+          });
+        });
+        if (!channel) return;
+
+        // 許可リクエストを送った人を取得
+        const requestUser = getUserFromApprovalRequestEmbed(
+          interaction.message,
+        );
+        const requestMember = !requestUser
+          ? undefined
+          : await interaction.guild?.members.fetch(requestUser);
+        if (!requestMember) {
+          await interaction.editReply({
+            content: '許可リクエストを送ったユーザーが見つかりませんでした',
+          });
+          return;
+        }
+
+        // 許可リクエストを送った人が待機VC or VCにいるか確認
+        const isRequestMemberInChannel = async (): Promise<boolean> => {
+          // 待機VC or VCにいるか確認
+          const waitChannel = requestMember.voice.channel;
+          if (!waitChannel) return false;
+
+          // 本VCにいるか確認
+          if (getChannelEntry(waitChannel.id)) return true;
+
+          // 待機VCにいるか確認
+          const voiceChannel =
+            await getApprovalRelatedVoiceChannel(waitChannel);
+          if (!voiceChannel) return false;
+          return voiceChannel.id === channel.id;
+        };
+        if (!(await isRequestMemberInChannel())) {
+          await interaction.editReply({
+            content:
+              '許可リクエストを送ったユーザーが待機VCまたはVCにいませんでした',
+          });
+          return;
+        }
+
+        // 許可リクエストを送った人を拒否リストに追加
+        await editApprovalUser(channel, [], [requestMember.user]);
+        // キック
+        await requestMember.voice.disconnect();
+
+        // リプライを送信
+        await interaction.editReply({
+          content: `<@${requestMember.id}> を拒否しました`,
+          allowedMentions: { users: [] }, // メンションを抑制
+        });
+
+        break;
+      }
     }
   } catch (error) {
     console.log(error);
@@ -416,11 +551,7 @@ async function getConnectedEditableChannel(
     );
   }
   // カスタムVCのチャンネルでない場合、例外をthrowする
-  if (
-    !config.customVcList.find(
-      (channelEntry) => channelEntry.channelId === channel.id,
-    )
-  ) {
+  if (!getChannelEntry(channel.id)) {
     throw new Error(
       `このチャンネルでは、<#${interaction.channelId}>のパネルは使用できません\n他のVCに入ってからもう一度実行してください`,
     );
