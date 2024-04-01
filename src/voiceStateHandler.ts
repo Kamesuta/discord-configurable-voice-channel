@@ -9,6 +9,7 @@ import {
   approvalRequestTips,
 } from './voiceApproval.js';
 import {
+  allowUserApprovalChannelPermisson,
   createChannelEmbed,
   editChannelPermission,
   freeChannelEmbed,
@@ -130,16 +131,26 @@ export async function onVoiceStateUpdate(
   // -----------------------------------------------------------------------------------------------------------
   if (oldChannel?.id !== newChannel?.id && newChannel?.id) {
     try {
-      // 待機VCの情報を取得
+      // 本VCの情報を取得
       const channel = await getApprovalRelatedVoiceChannel(newChannel);
-
-      // 待機VCの場合
       if (channel) {
-        // メッセージを投稿
-        await channel.send({
-          embeds: [approvalRequestEmbed(member.user, false)],
-          components: [approvalRequestButtonRow],
-        });
+        // 既に本VCの権限がある場合
+        const overwrite = [...channel.permissionOverwrites.cache.values()].find(
+          (permission) =>
+            permission.id === member.id &&
+            permission.allow.has(allowUserApprovalChannelPermisson),
+        );
+
+        if (overwrite) {
+          // 既に権限がある場合は移動
+          await member.voice.setChannel(channel);
+        } else {
+          // メッセージを投稿
+          await channel.send({
+            embeds: [approvalRequestEmbed(member.user, false)],
+            components: [approvalRequestButtonRow],
+          });
+        }
       }
     } catch (error) {
       logger.error(error);
@@ -151,10 +162,8 @@ export async function onVoiceStateUpdate(
   // -----------------------------------------------------------------------------------------------------------
   if (oldChannel?.id !== newChannel?.id && oldChannel?.id) {
     try {
-      // 待機VCの情報を取得
+      // 本VCの情報を取得
       const channel = await getApprovalRelatedVoiceChannel(oldChannel);
-
-      // 待機VCの場合
       if (channel) {
         // 直近10件のメッセージを取得
         const messages = await channel.messages.fetch({ limit: 10 });

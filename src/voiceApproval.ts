@@ -379,6 +379,9 @@ export async function rejectRequest(
     return;
   }
 
+  // 許可リクエストを送った人を許可リストから削除
+  await editApprovalUser(channel, [], [requestMember.user]);
+
   // 許可リクエストを送った人が待機VC or VCにいるか確認
   const isRequestMemberInChannel = async (): Promise<boolean> => {
     // 待機VC or VCにいるか確認
@@ -393,17 +396,10 @@ export async function rejectRequest(
     if (!voiceChannel) return false;
     return voiceChannel.id === channel.id;
   };
-  if (!(await isRequestMemberInChannel())) {
-    await interaction.editReply({
-      content: '許可リクエストを送ったユーザーが待機VCまたはVCにいませんでした',
-    });
-    return;
+  if (await isRequestMemberInChannel()) {
+    // キック
+    await requestMember.voice.disconnect();
   }
-
-  // 許可リクエストを送った人を拒否リストに追加
-  await editApprovalUser(channel, [], [requestMember.user]);
-  // キック
-  await requestMember.voice.disconnect();
 
   // リプライを送信
   await interaction.editReply({
