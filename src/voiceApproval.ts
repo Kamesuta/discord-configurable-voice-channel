@@ -13,7 +13,7 @@ import {
 } from 'discord.js';
 
 import { config, getChannelEntry } from './utils/config.js';
-import { getOwnCategoryPermission } from './voiceBlackList.js';
+import { blockUsers, getOwnCategoryPermission } from './voiceBlackList.js';
 import {
   editChannelPermission,
   getConnectedEditableChannel,
@@ -394,9 +394,11 @@ export async function approveRequest(
 /**
  * 拒否する
  * @param interaction インタラクション
+ * @param isBlock ブロックするかどうか
  */
 export async function rejectRequest(
   interaction: ButtonInteraction,
+  isBlock = false,
 ): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
@@ -427,28 +429,44 @@ export async function rejectRequest(
   // 許可リクエストを送った人を許可リストから削除
   await editApprovalUser(channel, [], [requestMember.user]);
 
-  // 許可リクエストを送った人が待機VC or VCにいるか確認
-  const isRequestMemberInChannel = async (): Promise<boolean> => {
+  // 本VC or 待機VCを取得
+  const voiceChannel = await (async (): Promise<
+    VoiceBasedChannel | undefined
+  > => {
     // 待機VC or VCにいるか確認
     const waitChannel = requestMember.voice.channel;
-    if (!waitChannel) return false;
+    if (!waitChannel) return;
 
     // 本VCにいるか確認
-    if (getChannelEntry(waitChannel.id)) return true;
+    if (getChannelEntry(waitChannel.id)) return waitChannel;
 
     // 待機VCにいるか確認
     const voiceChannel = await getApprovalRelatedVoiceChannel(waitChannel);
-    if (!voiceChannel) return false;
-    return voiceChannel.id === channel.id;
-  };
-  if (await isRequestMemberInChannel()) {
+    if (!voiceChannel) return;
+
+    return voiceChannel;
+  })();
+  // リクエストを送った人が本VC or 待機VCにいる場合キック
+  if (voiceChannel?.id === channel.id) {
     // キック
     await requestMember.voice.disconnect();
   }
 
+  // ついでにブロックする場合
+  if (isBlock) {
+    const member = interaction.guild?.members.cache.get(interaction.user.id);
+    if (member) {
+      // ブロックする
+      await blockUsers(member, [requestMember.id]);
+      await editChannelPermission(channel, member.user);
+    }
+  }
+
   // リプライを送信
   await interaction.editReply({
-    content: `<@${requestMember.id}> を拒否しました`,
+    content: `<@${requestMember.id}> を${
+      isBlock ? 'ブロック' : '拒否'
+    }しました`,
     allowedMentions: { users: [] }, // メンションを抑制
   });
 }

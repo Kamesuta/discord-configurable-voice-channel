@@ -1,5 +1,6 @@
 import {
   EmbedBuilder,
+  GuildMember,
   OverwriteResolvable,
   PermissionsBitField,
   User,
@@ -54,38 +55,18 @@ export async function addUserToBlackList(
 ): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const userId: string = String(interaction.user.id);
+  const member = interaction.guild?.members.cache.get(interaction.user.id);
+  if (!member) return;
   const selectedMemberNum = interaction.values.length;
 
-  // ブロックしたユーザーを取得
-  const allUsers = await prisma.blackLists.findMany({
-    where: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      user_id: String(interaction.user.id),
-    },
-  });
+  // 選択されたユーザーを取得する
+  const selectedUserIds = interaction.values;
 
-  // ブロック処理
-  const alreadyBlockedUsers: string[] = [];
-  const privilegedUsers: string[] = [];
-  for (let i = 0; i < selectedMemberNum; i++) {
-    const blockUserId: string = String(interaction.values[i]);
-    // Prismaを使ってBlackListsテーブルにレコードを作成
-    if (allUsers.find((user) => String(user.block_user_id) === blockUserId)) {
-      alreadyBlockedUsers.push(blockUserId);
-    } else if (await validatePrivilegedUser(interaction, blockUserId)) {
-      privilegedUsers.push(blockUserId);
-    } else {
-      await prisma.blackLists.create({
-        data: {
-          /* eslint-disable @typescript-eslint/naming-convention */
-          user_id: String(userId),
-          block_user_id: String(blockUserId),
-          /* eslint-enable @typescript-eslint/naming-convention */
-        },
-      });
-    }
-  }
+  // ブロックしたユーザーを取得
+  const { privilegedUsers, alreadyBlockedUsers } = await blockUsers(
+    member,
+    selectedUserIds,
+  );
 
   // チャンネルの権限を更新
   const channel = await getConnectedEditableChannel(interaction).catch(
@@ -119,6 +100,52 @@ export async function addUserToBlackList(
 }
 
 /**
+ * ブロック処理
+ * @param ownerMember VCを作成したユーザー
+ * @param selectedUserIds ブロックするユーザーのID
+ * @returns 特権があるユーザー、既にブロックされているユーザー
+ */
+export async function blockUsers(
+  ownerMember: GuildMember,
+  selectedUserIds: string[],
+): Promise<{
+  privilegedUsers: string[];
+  alreadyBlockedUsers: string[];
+}> {
+  const blockedUsers = await prisma.blackLists.findMany({
+    where: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      user_id: String(ownerMember.user.id),
+    },
+  });
+
+  // ブロック処理
+  const alreadyBlockedUsers: string[] = [];
+  const privilegedUsers: string[] = [];
+  for (const selectedUserId of selectedUserIds) {
+    // Prismaを使ってBlackListsテーブルにレコードを作成
+    if (
+      blockedUsers.find((user) => String(user.block_user_id) === selectedUserId)
+    ) {
+      alreadyBlockedUsers.push(selectedUserId);
+    } else if (await validatePrivilegedUser(ownerMember, selectedUserId)) {
+      privilegedUsers.push(selectedUserId);
+    } else {
+      await prisma.blackLists.create({
+        data: {
+          /* eslint-disable @typescript-eslint/naming-convention */
+          user_id: ownerMember.id,
+          block_user_id: String(selectedUserId),
+          /* eslint-enable @typescript-eslint/naming-convention */
+        },
+      });
+    }
+  }
+
+  return { privilegedUsers, alreadyBlockedUsers };
+}
+
+/**
  * ブロック解除
  * @param interaction インタラクション
  */
@@ -129,7 +156,7 @@ export async function removeUserFromBlackList(
 
   // ブロックしたユーザーを取得
   const userId: string = String(interaction.user.id);
-  const allUsers = await prisma.blackLists.findMany({
+  const blockedUsers = await prisma.blackLists.findMany({
     where: {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       user_id: String(interaction.user.id),
@@ -138,8 +165,8 @@ export async function removeUserFromBlackList(
   // ブロック解除処理
   for (let i = 0; i < interaction.values.length; i++) {
     const blockUserId: string = String(interaction.values[i]);
-    for (let i = 0; i < allUsers.length; i++) {
-      if (String(allUsers[i].block_user_id) === blockUserId) {
+    for (let i = 0; i < blockedUsers.length; i++) {
+      if (String(blockedUsers[i].block_user_id) === blockUserId) {
         await prisma.blackLists.deleteMany({
           where: {
             /* eslint-disable @typescript-eslint/naming-convention */
@@ -168,18 +195,18 @@ export async function removeUserFromBlackList(
 
 /**
  * ブロックするユーザーの特権チェックを行う。
- * @param interaction インタラクション
+ * @param ownerMember VCを作成したユーザー
  * @param blockUserId ブロックするユーザーのID
  * @returns 特権があればtrue、なければfalse
  */
 async function validatePrivilegedUser(
-  interaction: MenuInteraction,
+  ownerMember: GuildMember,
   blockUserId: string,
 ): Promise<boolean> {
   // 自身のIDを取得
-  const userId: string = String(interaction.user.id);
+  const userId: string = ownerMember.id;
   // メンバーを取得
-  const member = await interaction.guild?.members.fetch(blockUserId);
+  const member = await ownerMember.guild.members.fetch(blockUserId);
   // ブロックするユーザーが自分自身か、ブロックするユーザーがVC移動権限を持っているか確認
   return (
     blockUserId === userId ||

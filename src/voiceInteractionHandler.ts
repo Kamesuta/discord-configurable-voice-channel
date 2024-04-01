@@ -247,6 +247,16 @@ export async function onVoiceCreateInteraction(
         await rejectRequest(interaction);
         break;
       }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // ブロックボタンの処理
+      // -----------------------------------------------------------------------------------------------------------
+      case 'requestBlock': {
+        if (!interaction.isButton()) return;
+
+        await rejectRequest(interaction, true);
+        break;
+      }
     }
   } catch (error) {
     console.log(error);
