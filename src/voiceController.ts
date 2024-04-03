@@ -29,7 +29,7 @@ import {
   allowUserPermisson,
   denyUserPermisson,
   getBlockedUsers,
-  getOwnCategoryPermission,
+  getCategoryRolePermission,
 } from './voiceBlackList.js';
 
 import { client } from './index.js';
@@ -313,7 +313,7 @@ export async function editChannelPermission(
   if (!channelEntry) return;
 
   // 親カテゴリから継承した権限を取得
-  const inheritOverwrites = getOwnCategoryPermission(channel);
+  const inheritOverwrites = getCategoryRolePermission(channel);
 
   // オーナー
   const ownerUser =

@@ -17,7 +17,7 @@ import { config, getChannelEntry } from './utils/config.js';
 import {
   denyUserPermisson,
   editBlockUsers,
-  getOwnCategoryPermission,
+  getCategoryRolePermission,
 } from './voiceBlackList.js';
 import {
   editChannelPermission,
@@ -169,7 +169,7 @@ export async function setApprovalWaitChannel(
 
   if (approval) {
     // 親カテゴリから継承した権限を取得
-    const inheritOverwrites = getOwnCategoryPermission(channel);
+    const inheritOverwrites = getCategoryRolePermission(channel);
 
     if (waitChannel) {
       if (waitChannel.isVoiceBased()) {

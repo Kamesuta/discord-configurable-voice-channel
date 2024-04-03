@@ -3,6 +3,7 @@ import {
   GuildMember,
   MessageComponentInteraction,
   OverwriteResolvable,
+  OverwriteType,
   PermissionsBitField,
   User,
   VoiceBasedChannel,
@@ -331,16 +332,21 @@ export async function getBlockedUsers(ownerUser: User): Promise<User[]> {
  * @param channel チャンネル
  * @returns 権限
  */
-export function getOwnCategoryPermission(
+export function getCategoryRolePermission(
   channel: VoiceBasedChannel,
 ): OverwriteResolvable[] {
   const me = channel.guild.members.me;
   if (!channel.parent || !me) return [];
 
   // カテゴリの上書き権限を取得
-  return [...channel.parent.permissionOverwrites.cache.values()].filter(
-    (permission) =>
-      me.id === permission.id || me.roles.cache.has(permission.id),
+  return (
+    [...channel.parent.permissionOverwrites.cache.values()]
+      // ロールの権限(@everyone以外)は継承
+      .filter(
+        (permission) =>
+          permission.type !== OverwriteType.Member &&
+          permission.id !== channel.guild.roles.everyone.id,
+      )
   );
 }
 
