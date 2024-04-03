@@ -7,15 +7,19 @@ import {
 } from './voiceApproval.js';
 import {
   addUserToBlackList,
+  kickUserFromChannel,
   removeUserFromBlackList,
   showBlackList,
+  userListMenuSelect,
 } from './voiceBlackList.js';
 import {
+  changePeopleLimitedModal,
   editChannelPermission,
   getChannelOwner,
   getConnectedEditableChannel,
-  onOperationMenu,
   transferedOwnershipEmbed,
+  transferOwnershipEmbed,
+  transferOwnershipMenu,
 } from './voiceController.js';
 import { onVoiceStatusChange } from './voiceStatusHandler.js';
 
@@ -38,38 +42,24 @@ export async function onVoiceCreateInteraction(
 
     switch (interaction.customId) {
       // -----------------------------------------------------------------------------------------------------------
-      // チャンネルの設定
+      // 人数制限の変更
       // -----------------------------------------------------------------------------------------------------------
-      case 'operationMenu': {
-        if (!interaction.isStringSelectMenu()) return;
+      case 'roomChangePeopleLimit': {
+        if (!interaction.isButton()) return;
 
-        // 入っているVCのチャンネルを取得し、権限チェックを行う
-        const channel = await getConnectedEditableChannel(
-          interaction,
-          true,
-        ).catch(async (error: Error) => {
-          // エラーが発生した場合、エラーメッセージを返信して処理を終了
-          await interaction.reply({
-            content: error.message,
-            ephemeral: true,
-          });
-        });
-        if (!channel) return;
-
-        // メニューの操作に応じて処理を分岐
-        const operationPage = interaction.values[0];
-        await onOperationMenu(interaction, operationPage);
+        // 人数制限
+        await interaction.showModal(changePeopleLimitedModal);
         break;
       }
 
       // -----------------------------------------------------------------------------------------------------------
       // 人数制限の変更
       // -----------------------------------------------------------------------------------------------------------
-      case 'changePeopleLimitedModal': {
+      case 'dialogChangePeopleLimit': {
         if (!interaction.isModalSubmit()) return;
 
         const channelUserLimit = Number(
-          interaction.fields.getTextInputValue('changePeopleLimitedInput'),
+          interaction.fields.getTextInputValue('dialogInputPeopleLimit'),
         );
         if (Number.isNaN(channelUserLimit)) {
           await interaction.reply({
@@ -110,9 +100,24 @@ export async function onVoiceCreateInteraction(
       }
 
       // -----------------------------------------------------------------------------------------------------------
-      // VCの譲渡
+      // VCのオーナーの変更
       // -----------------------------------------------------------------------------------------------------------
-      case 'transferOwnership': {
+      case 'roomTransferOwnership': {
+        if (!interaction.isButton()) return;
+
+        // VCのオーナーの変更
+        await interaction.reply({
+          embeds: [transferOwnershipEmbed],
+          components: [transferOwnershipMenu],
+          ephemeral: true,
+        });
+        break;
+      }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // VCのオーナーの変更
+      // -----------------------------------------------------------------------------------------------------------
+      case 'dialogTransferOwnership': {
         if (!interaction.isUserSelectMenu()) return;
 
         // 譲渡先のユーザーを取得
@@ -189,10 +194,45 @@ export async function onVoiceCreateInteraction(
       }
 
       // -----------------------------------------------------------------------------------------------------------
+      // ブロックしているユーザーを確認する処理
+      // -----------------------------------------------------------------------------------------------------------
+      case 'roomToggleApproval': {
+        if (!interaction.isButton()) return;
+
+        await toggleApproval(interaction);
+        break;
+      }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // ユーザーリスト選択
+      // -----------------------------------------------------------------------------------------------------------
+      case 'userListMenu': {
+        if (!interaction.isUserSelectMenu()) return;
+
+        // 選択を保存
+        userListMenuSelect[`${interaction.message.id}:${interaction.user.id}`] =
+          interaction.values;
+
+        // 何も反応しない
+        await interaction.update({});
+        break;
+      }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // ブロックしているユーザーを確認する処理
+      // -----------------------------------------------------------------------------------------------------------
+      case 'userShowBlackList': {
+        if (!interaction.isButton()) return;
+
+        await showBlackList(interaction, interaction.user);
+        break;
+      }
+
+      // -----------------------------------------------------------------------------------------------------------
       // ユーザーをブロックする処理
       // -----------------------------------------------------------------------------------------------------------
-      case 'userBlackList': {
-        if (!interaction.isUserSelectMenu()) return;
+      case 'userBlock': {
+        if (!interaction.isButton()) return;
 
         await addUserToBlackList(interaction);
         break;
@@ -201,30 +241,20 @@ export async function onVoiceCreateInteraction(
       // -----------------------------------------------------------------------------------------------------------
       // ユーザーのブロックを解除する処理
       // -----------------------------------------------------------------------------------------------------------
-      case 'userBlackReleaseList': {
-        if (!interaction.isUserSelectMenu()) return;
+      case 'userUnblock': {
+        if (!interaction.isButton()) return;
 
         await removeUserFromBlackList(interaction);
         break;
       }
 
       // -----------------------------------------------------------------------------------------------------------
-      // ブロックしているユーザーを確認する処理
+      // ユーザーをキックする処理
       // -----------------------------------------------------------------------------------------------------------
-      case 'showBlackList': {
+      case 'userKick': {
         if (!interaction.isButton()) return;
 
-        await showBlackList(interaction, interaction.user);
-        break;
-      }
-
-      // -----------------------------------------------------------------------------------------------------------
-      // ブロックしているユーザーを確認する処理
-      // -----------------------------------------------------------------------------------------------------------
-      case 'toggleApproval': {
-        if (!interaction.isButton()) return;
-
-        await toggleApproval(interaction);
+        await kickUserFromChannel(interaction);
         break;
       }
 

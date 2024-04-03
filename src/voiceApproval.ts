@@ -5,6 +5,7 @@ import {
   ButtonStyle,
   ChannelType,
   EmbedBuilder,
+  GuildMember,
   Message,
   OverwriteResolvable,
   PermissionsBitField,
@@ -16,6 +17,7 @@ import { config, getChannelEntry } from './utils/config.js';
 import { blockUsers, getOwnCategoryPermission } from './voiceBlackList.js';
 import {
   editChannelPermission,
+  fetchInteractionMember,
   getConnectedEditableChannel,
   MenuInteraction,
   prisma,
@@ -434,22 +436,8 @@ export async function rejectRequest(
   await editApprovalUser(channel, [], [requestMember.user]);
 
   // 本VC or 待機VCを取得
-  const voiceChannel = await (async (): Promise<
-    VoiceBasedChannel | undefined
-  > => {
-    // 待機VC or VCにいるか確認
-    const waitChannel = requestMember.voice.channel;
-    if (!waitChannel) return;
-
-    // 本VCにいるか確認
-    if (getChannelEntry(waitChannel.id)) return waitChannel;
-
-    // 待機VCにいるか確認
-    const voiceChannel = await getApprovalRelatedVoiceChannel(waitChannel);
-    if (!voiceChannel) return;
-
-    return voiceChannel;
-  })();
+  const voiceChannel =
+    await getChannelIfUserInVoiceChannelOrWaitChannel(requestMember);
   // リクエストを送った人が本VC or 待機VCにいる場合キック
   if (voiceChannel?.id === channel.id) {
     // キック
@@ -458,7 +446,7 @@ export async function rejectRequest(
 
   // ついでにブロックする場合
   if (isBlock) {
-    const member = interaction.guild?.members.cache.get(interaction.user.id);
+    const member = await fetchInteractionMember(interaction);
     if (member) {
       // ブロックする
       await blockUsers(member, [requestMember.id]);
@@ -473,4 +461,26 @@ export async function rejectRequest(
     }しました`,
     allowedMentions: { users: [] }, // メンションを抑制
   });
+}
+
+/**
+ * メンバーが本VCか待機VCにいる場合、VCを取得
+ * @param requestMember メンバー
+ * @returns 本VC or 待機VC
+ */
+async function getChannelIfUserInVoiceChannelOrWaitChannel(
+  requestMember: GuildMember,
+): Promise<VoiceBasedChannel | undefined> {
+  // 待機VC or VCにいるか確認
+  const waitChannel = requestMember.voice.channel;
+  if (!waitChannel) return;
+
+  // 本VCにいるか確認
+  if (getChannelEntry(waitChannel.id)) return waitChannel;
+
+  // 待機VCにいるか確認
+  const voiceChannel = await getApprovalRelatedVoiceChannel(waitChannel);
+  if (!voiceChannel) return;
+
+  return voiceChannel;
 }

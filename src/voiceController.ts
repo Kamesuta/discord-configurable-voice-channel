@@ -4,21 +4,18 @@ import {
   ActionRowBuilder,
   ModalBuilder,
   ModalSubmitInteraction,
-  StringSelectMenuInteraction,
   TextInputBuilder,
   TextInputStyle,
-  UserSelectMenuInteraction,
   VoiceBasedChannel,
   User,
-  ButtonInteraction,
   UserSelectMenuBuilder,
   ButtonBuilder,
-  StringSelectMenuBuilder,
   PermissionsBitField,
   ButtonStyle,
   OverwriteType,
   GuildMember,
   OverwriteResolvable,
+  MessageComponentInteraction,
 } from 'discord.js';
 
 import { config, getChannelEntry } from './utils/config.js';
@@ -55,70 +52,105 @@ const controlPannelEmbed: EmbedBuilder = new EmbedBuilder()
 /**
  * ブロックするユーザーを選択するためのセレクトメニュー
  */
-const userBlackListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
+const userListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
   new ActionRowBuilder<UserSelectMenuBuilder>().setComponents(
     new UserSelectMenuBuilder()
-      .setCustomId('userBlackList')
-      .setPlaceholder('ブロックするユーザーを選択')
+      .setCustomId('userListMenu')
+      .setPlaceholder('操作するユーザーを選択')
       .setMaxValues(10)
       .setMinValues(1),
   );
 /**
- * ブロックしているユーザーを解除選択するためのセレクトメニュー
+ * 部屋操作系ボタンの行
  */
-const userBlackReleaseListMenu: ActionRowBuilder<UserSelectMenuBuilder> =
-  new ActionRowBuilder<UserSelectMenuBuilder>().setComponents(
-    new UserSelectMenuBuilder()
-      .setCustomId('userBlackReleaseList')
-      .setPlaceholder('ブロックを解除するユーザーを選択')
-      .setMaxValues(10)
-      .setMinValues(1),
-  );
-/**
- * ボタンの行
- */
-const buttonRow: ActionRowBuilder<ButtonBuilder> =
+const roomButtonRow: ActionRowBuilder<ButtonBuilder> =
   new ActionRowBuilder<ButtonBuilder>().setComponents(
-    // ブロックユーザー確認ボタン
-    new ButtonBuilder()
-      .setCustomId('showBlackList')
-      .setLabel('ブロックユーザー確認')
-      .setEmoji({
-        name: '📝',
-      })
-      .setStyle(ButtonStyle.Success),
     // 許可制VCをON/OFFするためのボタン
     new ButtonBuilder()
-      .setCustomId('toggleApproval')
-      .setLabel('許可制VCをON/OFF')
+      .setCustomId('roomToggleApproval')
+      .setLabel('許可制VC ON/OFF')
       .setEmoji({
         name: '🔒',
+      })
+      .setStyle(ButtonStyle.Primary),
+    // 許可制VCをON/OFFするためのボタン
+    new ButtonBuilder()
+      .setCustomId('roomLimitPeople')
+      .setLabel('人数制限')
+      .setEmoji({
+        name: '🛡️',
+      })
+      .setStyle(ButtonStyle.Primary),
+    // 許可制VCをON/OFFするためのボタン
+    new ButtonBuilder()
+      .setCustomId('roomTransferOwnership')
+      .setLabel('オーナー譲渡')
+      .setEmoji({
+        name: '👑',
       })
       .setStyle(ButtonStyle.Primary),
   );
 
 /**
- * 設定を選択するためのセレクトメニュー
+ * ユーザー操作系ボタンの行
  */
-const operationMenu: ActionRowBuilder<StringSelectMenuBuilder> =
-  new ActionRowBuilder<StringSelectMenuBuilder>().setComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId('operationMenu')
-      .setPlaceholder('チャンネルの設定')
-      .setMaxValues(1)
-      .setMinValues(1)
-      .addOptions(
-        {
-          label: '人数制限',
-          description: '人数制限の人数を変更できます(0~99)',
-          value: 'peopleLimited_change',
-        },
-        {
-          label: 'VCのオーナーの変更',
-          description: 'VCの管理権限を他の人に渡します',
-          value: 'owner_change',
-        },
-      ),
+const userButtonMenu1: ActionRowBuilder<ButtonBuilder> =
+  new ActionRowBuilder<ButtonBuilder>().setComponents(
+    // ブロックユーザー確認ボタン
+    new ButtonBuilder()
+      .setCustomId('userShowBlackList')
+      .setLabel('ブロック確認')
+      .setEmoji({
+        name: '📝',
+      })
+      .setStyle(ButtonStyle.Success),
+    // ブロックボタン
+    new ButtonBuilder()
+      .setCustomId('userBlock')
+      .setLabel('ブロック')
+      .setEmoji({
+        name: '🙅‍♀️',
+      })
+      .setStyle(ButtonStyle.Success),
+    // ブロックユーザー解除ボタン
+    new ButtonBuilder()
+      .setCustomId('userUnblock')
+      .setLabel('ブロック解除')
+      .setEmoji({
+        name: '🙆‍♀️',
+      })
+      .setStyle(ButtonStyle.Success),
+  );
+
+/**
+ * ユーザー操作系ボタンの行
+ */
+const userButtonMenu2: ActionRowBuilder<ButtonBuilder> =
+  new ActionRowBuilder<ButtonBuilder>().setComponents(
+    // ユーザーキックボタン
+    new ButtonBuilder()
+      .setCustomId('userKick')
+      .setLabel('キック')
+      .setEmoji({
+        name: '🦶',
+      })
+      .setStyle(ButtonStyle.Success),
+    // ユーザーミュートボタン
+    new ButtonBuilder()
+      .setCustomId('userMute')
+      .setLabel('ミュート')
+      .setEmoji({
+        name: '🔇',
+      })
+      .setStyle(ButtonStyle.Success),
+    // ユーザーミュート解除ボタン
+    new ButtonBuilder()
+      .setCustomId('userUnmute')
+      .setLabel('ミュート解除')
+      .setEmoji({
+        name: '🔊',
+      })
+      .setStyle(ButtonStyle.Success),
   );
 
 /**
@@ -172,8 +204,8 @@ export const transferedOwnershipEmbed = (user: User): EmbedBuilder =>
 /**
  * 人数制限の変更を行う際のモーダル
  */
-const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
-  .setCustomId('changePeopleLimitedModal')
+export const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
+  .setCustomId('dialogChangePeopleLimit')
   .setTitle('人数制限の変更');
 /**
  * 人数制限の変更を行う際のテキストボックス
@@ -181,7 +213,7 @@ const changePeopleLimitedModal: ModalBuilder = new ModalBuilder()
 const changePeopleLimitedInput: TextInputBuilder = new TextInputBuilder()
   .setMaxLength(2)
   .setMinLength(1)
-  .setCustomId('changePeopleLimitedInput')
+  .setCustomId('dialogInputPeopleLimit')
   .setLabel('変更する人数を入力してください')
   .setPlaceholder('0~99人までです(0人の場合は無制限になります)')
   .setStyle(TextInputStyle.Short);
@@ -195,7 +227,7 @@ changePeopleLimitedModal.addComponents(
 /**
  * VCのオーナーの変更を行う際のモーダル
  */
-const transferOwnershipEmbed: EmbedBuilder = new EmbedBuilder()
+export const transferOwnershipEmbed: EmbedBuilder = new EmbedBuilder()
   .setColor(parseInt(config.botColor.replace('#', ''), 16))
   .setTitle('VCのオーナーの変更')
   .setDescription(
@@ -204,10 +236,10 @@ const transferOwnershipEmbed: EmbedBuilder = new EmbedBuilder()
 /**
  * 譲渡するユーザーを選択するためのセレクトメニュー
  */
-const transferOwnershipMenu: ActionRowBuilder<UserSelectMenuBuilder> =
+export const transferOwnershipMenu: ActionRowBuilder<UserSelectMenuBuilder> =
   new ActionRowBuilder<UserSelectMenuBuilder>().setComponents(
     new UserSelectMenuBuilder()
-      .setCustomId('transferOwnership')
+      .setCustomId('dialogTransferOwnership')
       .setPlaceholder('VCの管理権限を譲渡するユーザーを選択')
       .setMaxValues(1)
       .setMinValues(1),
@@ -217,10 +249,8 @@ const transferOwnershipMenu: ActionRowBuilder<UserSelectMenuBuilder> =
  * VCコントローラーで用いるインタラクションの型
  */
 export type MenuInteraction =
-  | StringSelectMenuInteraction
-  | UserSelectMenuInteraction
-  | ModalSubmitInteraction
-  | ButtonInteraction;
+  | MessageComponentInteraction
+  | ModalSubmitInteraction;
 
 /**
  * チャンネルの設定を更新するための処理
@@ -244,10 +274,10 @@ export async function updateControlPanel(): Promise<void> {
     await panelChannel.send({
       embeds: [controlPannelEmbed],
       components: [
-        userBlackListMenu,
-        userBlackReleaseListMenu,
-        buttonRow,
-        operationMenu,
+        roomButtonRow,
+        userListMenu,
+        userButtonMenu1,
+        userButtonMenu2,
       ],
     });
   }
@@ -346,34 +376,6 @@ export async function editChannelPermission(
 }
 
 /**
- * ボタンが押されたときの処理
- * @param interaction インタラクション
- * @param operationPage ページ
- */
-export async function onOperationMenu(
-  interaction: StringSelectMenuInteraction,
-  operationPage: string,
-): Promise<void> {
-  switch (operationPage) {
-    case 'peopleLimited_change': {
-      // 人数制限
-      await interaction.showModal(changePeopleLimitedModal);
-      break;
-    }
-
-    case 'owner_change': {
-      // VCのオーナーの変更
-      await interaction.reply({
-        embeds: [transferOwnershipEmbed],
-        components: [transferOwnershipMenu],
-        ephemeral: true,
-      });
-      break;
-    }
-  }
-}
-
-/**
  * 入っている管理権限のあるVCのチャンネルを取得 (権限チェックも行う)
  * @param interaction インタラクション
  * @param isTransferOwnership オーナー譲渡中かどうか (オーナー譲渡中はオーナーが居ない場合に権限チェックを行わない)
@@ -384,7 +386,7 @@ export async function getConnectedEditableChannel(
   isTransferOwnership: boolean = false,
 ): Promise<VoiceBasedChannel> {
   // メンバーを取得
-  const member = await interaction.guild?.members.fetch(interaction.user);
+  const member = await fetchInteractionMember(interaction);
   if (!member) {
     throw new Error('メンバーが見つかりませんでした');
   }
@@ -422,4 +424,17 @@ export async function getConnectedEditableChannel(
   }
 
   return channel;
+}
+
+/**
+ * インタラクションを実行したメンバーを取得
+ * @param interaction インタラクション
+ * @returns メンバー
+ */
+export async function fetchInteractionMember(
+  interaction: MenuInteraction,
+): Promise<GuildMember | undefined> {
+  return (
+    (await interaction.guild?.members.fetch(interaction.user)) ?? undefined
+  );
 }
