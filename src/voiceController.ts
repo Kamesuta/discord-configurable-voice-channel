@@ -14,7 +14,6 @@ import {
   ButtonStyle,
   OverwriteType,
   GuildMember,
-  OverwriteResolvable,
   MessageComponentInteraction,
 } from 'discord.js';
 
@@ -28,7 +27,9 @@ import {
 import {
   allowCreateUserPermisson,
   allowUserPermisson,
-  getDenyOverwrites,
+  denyMutedUserPermisson,
+  denyUserPermisson,
+  getBlockedUsers,
   getOwnCategoryPermission,
 } from './voiceBlackList.js';
 
@@ -303,15 +304,38 @@ export function getChannelOwner(
 }
 
 /**
+ * チャンネルの権限オーバーライド
+ */
+export interface MemberChannelPermissionOverwrite {
+  /**
+   * ID
+   */
+  id: string;
+  /**
+   * 許可制VCかどうか
+   */
+  approve?: boolean;
+  /**
+   * ミュートされているかどうか
+   */
+  muted?: boolean;
+}
+
+/**
  * チャンネルの権限設定を更新する
  * @param channel チャンネル
- * @param ownerUser ユーザー
- * @param approval 許可制VCかどうか
+ * @param options オプション (各オプションがundefinedの場合は変更しない)
+ * @param options.ownerUser ユーザー (nullの場合はオーナーを削除)
+ * @param options.approval 許可制VCかどうか
+ * @param options.memberPermssions メンバーの権限
  */
 export async function editChannelPermission(
   channel: VoiceBasedChannel,
-  ownerUser: User | undefined,
-  approval?: boolean,
+  options: {
+    ownerUser?: User | null;
+    approval?: boolean;
+    memberPermssions?: MemberChannelPermissionOverwrite[];
+  },
 ): Promise<void> {
   // コンフィグからchannelEntryを取得します
   const channelEntry = getChannelEntry(channel.id);
@@ -320,34 +344,118 @@ export async function editChannelPermission(
   // 親カテゴリから継承した権限を取得
   const inheritOverwrites = getOwnCategoryPermission(channel);
 
+  // オーナー
+  const ownerUser =
+    options.ownerUser === undefined
+      ? // 既存のオーナーを取得
+        getChannelOwner(channel)?.user
+      : options.ownerUser;
+
   if (ownerUser) {
     // 入る権限がeveryoneについているか確認
-    if (approval === undefined) {
-      approval = isApprovalChannel(channel);
-    }
+    const approval = options.approval ?? isApprovalChannel(channel);
 
-    // 許可制VCの場合、許可されたユーザーを取得
-    const approvedOverwrites: OverwriteResolvable[] = [
-      ...channel.permissionOverwrites.cache.values(),
-    ].filter((permission) =>
-      permission.allow.has(allowUserApprovalChannelPermisson),
-    );
+    // ブロックしているユーザーがいた場合、チャンネルを表示しない
+    const blockedUsers = await getBlockedUsers(ownerUser);
 
-    // 既に参加しているユーザーを許可
-    for (const member of channel.members.values()) {
-      approvedOverwrites.push({
-        id: member.id,
-        allow: [allowUserPermisson],
+    // ブロックを含むユーザーの権限
+    type BlockableMemberChannelPermissionOverwrite =
+      MemberChannelPermissionOverwrite & { blocked?: boolean };
+
+    // すべてのユーザーの権限をパース
+    const permissions: BlockableMemberChannelPermissionOverwrite[] = [];
+
+    // デフォルトの権限
+    const defaultPermission: Omit<
+      BlockableMemberChannelPermissionOverwrite,
+      'id'
+    > = {
+      approve: false,
+      muted: false,
+      blocked: false,
+    };
+
+    /**
+     * メンバーの権限をセットする
+     * @param overwrite 権限
+     */
+    const setPermission = (
+      overwrite: BlockableMemberChannelPermissionOverwrite,
+    ): void => {
+      // オーナーの権限は無視
+      if (overwrite.id === ownerUser.id) return;
+
+      const permission = permissions.find(
+        (permission) => permission.id === overwrite.id,
+      );
+      if (permission) {
+        // 既に権限がある場合、権限を更新
+        Object.assign(permission, {
+          ...permission,
+          ...overwrite,
+        });
+      } else {
+        // 権限がない場合、権限を追加
+        permissions.push({
+          ...defaultPermission,
+          ...overwrite,
+        });
+      }
+    };
+
+    // チャンネルの権限をパースして読み込む
+    for (const permission of channel.permissionOverwrites.cache.values()) {
+      // ロールの権限は無視
+      if (permission.type !== OverwriteType.Member) continue;
+
+      // パーミッションをセット
+      setPermission({
+        id: permission.id,
+        approve: permission.allow.has(allowUserApprovalChannelPermisson),
+        muted: permission.deny.has(denyMutedUserPermisson),
+        blocked: blockedUsers.some((user) => user.id === permission.id),
       });
     }
 
-    // ブロックしているユーザーがいた場合、チャンネルを表示しない
-    const denyOverwrites = await getDenyOverwrites(ownerUser);
+    // 既に参加しているユーザーは許可する
+    for (const member of channel.members.values()) {
+      setPermission({
+        id: member.id,
+        approve: true,
+      });
+    }
+
+    // オーバーライドをセット
+    if (options.memberPermssions) {
+      for (const overwrite of options.memberPermssions) {
+        setPermission(overwrite);
+      }
+    }
+
+    // 権限に変換
+    const permissionOverwrites = permissions
+      // デフォルト権限と同じ権限を持っているユーザーは削除
+      .filter(
+        (permission) =>
+          !(
+            defaultPermission.approve === permission.approve &&
+            defaultPermission.muted === permission.muted &&
+            defaultPermission.blocked === permission.blocked
+          ),
+      )
+      .map((permission) => ({
+        id: permission.id,
+        allow: [permission.approve ? allowUserApprovalChannelPermisson : []],
+        deny: [
+          permission.muted ? denyMutedUserPermisson : [],
+          permission.blocked ? denyUserPermisson : [],
+        ],
+      }));
 
     // チャンネルの権限をセットする
     await channel.permissionOverwrites.set([
       ...inheritOverwrites,
-      ...approvedOverwrites,
+      ...permissionOverwrites,
       {
         // 許可制VCかどうか
         id: channel.guild.roles.everyone,
@@ -358,11 +466,10 @@ export async function editChannelPermission(
         id: ownerUser,
         allow: [allowUserPermisson, allowCreateUserPermisson],
       },
-      ...denyOverwrites,
     ]);
 
     // 参加待ちチャンネルを作成/削除
-    await setApprovalWaitChannel(channel, denyOverwrites, approval);
+    await setApprovalWaitChannel(channel, blockedUsers, approval);
   } else {
     // チャンネルの権限をリセットする
     await channel.edit({

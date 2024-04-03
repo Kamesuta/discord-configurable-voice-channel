@@ -8,8 +8,10 @@ import {
 import {
   addUserToBlackList,
   kickUserFromChannel,
+  muteUserFromChannel,
   removeUserFromBlackList,
   showBlackList,
+  unmuteUserFromChannel,
   userListMenuSelect,
 } from './voiceBlackList.js';
 import {
@@ -176,7 +178,9 @@ export async function onVoiceCreateInteraction(
         await interaction.deferReply({ ephemeral: true });
 
         // チャンネルのオーナーを変更
-        await editChannelPermission(channel, newOwner.user);
+        await editChannelPermission(channel, {
+          ownerUser: newOwner.user,
+        });
         await onVoiceStatusChange(channel);
 
         // メッセージを投稿
@@ -255,6 +259,26 @@ export async function onVoiceCreateInteraction(
         if (!interaction.isButton()) return;
 
         await kickUserFromChannel(interaction);
+        break;
+      }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // ユーザーをミュートする処理
+      // -----------------------------------------------------------------------------------------------------------
+      case 'userMute': {
+        if (!interaction.isButton()) return;
+
+        await muteUserFromChannel(interaction);
+        break;
+      }
+
+      // -----------------------------------------------------------------------------------------------------------
+      // ユーザーのミュートを解除する処理
+      // -----------------------------------------------------------------------------------------------------------
+      case 'userUnmute': {
+        if (!interaction.isButton()) return;
+
+        await unmuteUserFromChannel(interaction);
         break;
       }
 

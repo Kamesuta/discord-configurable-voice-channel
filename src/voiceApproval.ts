@@ -14,7 +14,11 @@ import {
 } from 'discord.js';
 
 import { config, getChannelEntry } from './utils/config.js';
-import { blockUsers, getOwnCategoryPermission } from './voiceBlackList.js';
+import {
+  denyUserPermisson,
+  editBlockUsers,
+  getOwnCategoryPermission,
+} from './voiceBlackList.js';
 import {
   editChannelPermission,
   fetchInteractionMember,
@@ -37,6 +41,14 @@ export const allowUserApprovalChannelPermisson: bigint[] = [
  */
 export const denyUserApprovalChannelPermisson: bigint[] = [
   PermissionsBitField.Flags.Connect, // 接続
+];
+
+/**
+ * 許可制VCのデフォルト権限
+ */
+export const denyUserWaitChannelPermisson: bigint[] = [
+  PermissionsBitField.Flags.Speak, // 話す
+  PermissionsBitField.Flags.SendMessages, // メッセージを送信
 ];
 
 /**
@@ -127,12 +139,12 @@ export function isApprovalChannel(channel: VoiceBasedChannel): boolean {
 /**
  * 参加待ちチャンネルを作成/削除する
  * @param channel チャンネル
- * @param denyOverwrites ブロックしているユーザーの権限
+ * @param blockedUsers ブロックされているユーザー
  * @param approval 許可制VCかどうか
  */
 export async function setApprovalWaitChannel(
   channel: VoiceBasedChannel,
-  denyOverwrites: OverwriteResolvable[] = [],
+  blockedUsers: OverwriteResolvable[] = [],
   approval: boolean,
 ): Promise<void> {
   // VCに紐づけされた参加待ちチャンネルを取得
@@ -149,6 +161,12 @@ export async function setApprovalWaitChannel(
     ? await channel.guild.channels.fetch(waitChannelId).catch(() => null)
     : null;
 
+  // ブロックされたユーザーの権限
+  const blockedUserPermissions = blockedUsers.map((user) => ({
+    id: user.id,
+    deny: [denyUserPermisson],
+  }));
+
   if (approval) {
     // 親カテゴリから継承した権限を取得
     const inheritOverwrites = getOwnCategoryPermission(channel);
@@ -158,12 +176,12 @@ export async function setApprovalWaitChannel(
         // 既に参加待ちチャンネルが存在する場合、権限を更新
         await waitChannel.permissionOverwrites.set([
           ...inheritOverwrites,
-          ...denyOverwrites,
+          ...blockedUserPermissions,
         ]);
 
         // 既にブロックされたユーザーがいる場合、キック
         const blockedConnectedMembers = channel.members.filter((member) =>
-          denyOverwrites.find((overwrite) => member.id === overwrite.id),
+          blockedUsers.find((user) => member.id === user.id),
         );
         for (const [_, member] of blockedConnectedMembers) {
           await member.voice.disconnect();
@@ -184,7 +202,12 @@ export async function setApprovalWaitChannel(
       // ※一度チャンネルを作成してから権限を設定しないとエラーが発生するため注意
       await newWaitChannel.permissionOverwrites.set([
         ...inheritOverwrites,
-        ...denyOverwrites,
+        ...blockedUserPermissions,
+        {
+          // デフォルト権限
+          id: channel.guild.roles.everyone,
+          deny: [denyUserWaitChannelPermisson],
+        },
       ]);
 
       // チャンネルに紐づけ
@@ -218,39 +241,6 @@ export async function setApprovalWaitChannel(
       /* eslint-enable @typescript-eslint/naming-convention */
     });
   }
-}
-
-/**
- * 許可ユーザーを追加/削除する
- * @param channel チャンネル
- * @param blockUsers 追加するユーザー
- * @param removeUsers 削除するユーザー
- */
-export async function editApprovalUser(
-  channel: VoiceBasedChannel,
-  blockUsers: User[],
-  removeUsers: User[],
-): Promise<void> {
-  // 許可制VCの場合、許可されたユーザーを取得
-  const overwrites: OverwriteResolvable[] = [
-    ...channel.permissionOverwrites.cache.values(),
-  ].filter(
-    (permission) =>
-      // 削除するユーザーがいた場合、権限を削除
-      !(
-        removeUsers.find((user) => user.id === permission.id) &&
-        permission.allow.has(allowUserApprovalChannelPermisson)
-      ),
-  );
-
-  // 追加するユーザーの権限を追加
-  const allowOverwrites = blockUsers.map((user) => ({
-    id: user.id,
-    allow: [allowUserApprovalChannelPermisson],
-  }));
-
-  // チャンネルの権限をセットする
-  await channel.permissionOverwrites.set([...overwrites, ...allowOverwrites]);
 }
 
 /**
@@ -330,10 +320,10 @@ export async function toggleApproval(
 
   // 許可制VCかどうか
   const approval = channel ? !isApprovalChannel(channel) : false;
-  if (channel) {
-    // 許可制VCかどうかを切り替え
-    await editChannelPermission(channel, interaction.user, approval);
-  }
+  // 許可制VCかどうかを切り替え
+  await editChannelPermission(channel, {
+    approval,
+  });
 
   // リプライを送信
   await interaction.editReply({
@@ -386,7 +376,14 @@ export async function approveRequest(
   }
 
   // 許可リクエストを送った人を許可リストに追加
-  await editApprovalUser(channel, [requestMember.user], []);
+  await editChannelPermission(channel, {
+    memberPermssions: [
+      {
+        id: requestMember.id,
+        approve: true,
+      },
+    ],
+  });
   // VCを移動
   await requestMember.voice.setChannel(channel);
 
@@ -406,6 +403,9 @@ export async function rejectRequest(
   interaction: ButtonInteraction,
   isBlock = false,
 ): Promise<void> {
+  const member = await fetchInteractionMember(interaction);
+  if (!member) return;
+
   await interaction.deferReply({ ephemeral: true });
 
   // 入っているVCのチャンネルを取得し、権限チェックを行う
@@ -432,9 +432,6 @@ export async function rejectRequest(
     return;
   }
 
-  // 許可リクエストを送った人を許可リストから削除
-  await editApprovalUser(channel, [], [requestMember.user]);
-
   // 本VC or 待機VCを取得
   const voiceChannel =
     await getChannelIfUserInVoiceChannelOrWaitChannel(requestMember);
@@ -446,13 +443,20 @@ export async function rejectRequest(
 
   // ついでにブロックする場合
   if (isBlock) {
-    const member = await fetchInteractionMember(interaction);
-    if (member) {
-      // ブロックする
-      await blockUsers(member, [requestMember.id]);
-      await editChannelPermission(channel, member.user);
-    }
+    // ブロックする
+    await editBlockUsers(member, [requestMember.id], []);
   }
+
+  // チャンネル設定変更
+  // 許可リクエストを送った人を許可リストから削除 & ブロックリスト反映
+  await editChannelPermission(channel, {
+    memberPermssions: [
+      {
+        id: requestMember.id,
+        approve: false,
+      },
+    ],
+  });
 
   // リプライを送信
   await interaction.editReply({

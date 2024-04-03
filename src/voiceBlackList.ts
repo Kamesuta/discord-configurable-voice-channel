@@ -9,7 +9,6 @@ import {
 } from 'discord.js';
 
 import { config } from './utils/config.js';
-import { editApprovalUser } from './voiceApproval.js';
 import {
   prisma,
   getConnectedEditableChannel,
@@ -40,6 +39,13 @@ export const allowCreateUserPermisson: bigint[] = [
  */
 export const denyUserPermisson: bigint[] = [
   PermissionsBitField.Flags.ViewChannel, // チャンネルを見る
+];
+
+/**
+ * ミュートユーザーの権限
+ */
+export const denyMutedUserPermisson: bigint[] = [
+  PermissionsBitField.Flags.Speak, // 発言
 ];
 
 /**
@@ -78,9 +84,10 @@ export async function addUserToBlackList(
   if (!member) return;
 
   // ブロックしたユーザーを取得
-  const { privilegedUsers, alreadyBlockedUsers } = await blockUsers(
+  const { privilegedUsers, alreadyBlockedUsers } = await editBlockUsers(
     member,
     selectedUserIds,
+    [],
   );
 
   // チャンネルの権限を更新
@@ -88,7 +95,8 @@ export async function addUserToBlackList(
     () => {},
   );
   if (channel) {
-    await editChannelPermission(channel, interaction.user);
+    // ブロック設定をチャンネルに反映
+    await editChannelPermission(channel, {});
   }
 
   // リプライを送信
@@ -117,14 +125,57 @@ export async function addUserToBlackList(
 }
 
 /**
- * ブロック処理
+ * ブロック解除
+ * @param interaction インタラクション
+ */
+export async function removeUserFromBlackList(
+  interaction: MessageComponentInteraction,
+): Promise<void> {
+  // ユーザー選択リストを取得
+  const selectedUserIds =
+    userListMenuSelect[`${interaction.message.id}:${interaction.user.id}`];
+  if (!selectedUserIds) {
+    await interaction.reply({
+      content: 'ユーザーが選択されていません。もう一度選択し直してください',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const member = await fetchInteractionMember(interaction);
+  if (!member) return;
+
+  // ブロックしたユーザーを取得
+  await editBlockUsers(member, [], selectedUserIds);
+
+  // チャンネルの権限を更新
+  const channel = await getConnectedEditableChannel(interaction).catch(
+    () => {},
+  );
+  if (channel) {
+    // ブロック設定をチャンネルに反映
+    await editChannelPermission(channel, {});
+  }
+
+  // リプライを送信
+  await interaction.editReply({
+    content: '選択したユーザーのブロック解除が完了しました',
+  });
+}
+
+/**
+ * ブロック/ブロック解除処理
  * @param ownerMember VCを作成したユーザー
- * @param selectedUserIds ブロックするユーザーのID
+ * @param blockUserIds ブロックするユーザーのID
+ * @param unblockUserIds ブロック解除するユーザーのID
  * @returns 特権があるユーザー、既にブロックされているユーザー
  */
-export async function blockUsers(
+export async function editBlockUsers(
   ownerMember: GuildMember,
-  selectedUserIds: string[],
+  blockUserIds: string[],
+  unblockUserIds: string[],
 ): Promise<{
   privilegedUsers: string[];
   alreadyBlockedUsers: string[];
@@ -139,7 +190,7 @@ export async function blockUsers(
   // ブロック処理
   const alreadyBlockedUsers: string[] = [];
   const privilegedUsers: string[] = [];
-  for (const selectedUserId of selectedUserIds) {
+  for (const selectedUserId of blockUserIds) {
     // Prismaを使ってBlackListsテーブルにレコードを作成
     if (
       blockedUsers.find((user) => String(user.block_user_id) === selectedUserId)
@@ -162,39 +213,8 @@ export async function blockUsers(
     }
   }
 
-  return { privilegedUsers, alreadyBlockedUsers };
-}
-
-/**
- * ブロック解除
- * @param interaction インタラクション
- */
-export async function removeUserFromBlackList(
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  // ユーザー選択リストを取得
-  const selectedUserIds =
-    userListMenuSelect[`${interaction.message.id}:${interaction.user.id}`];
-  if (!selectedUserIds) {
-    await interaction.reply({
-      content: 'ユーザーが選択されていません。もう一度選択し直してください',
-      ephemeral: true,
-    });
-    return;
-  }
-
-  await interaction.deferReply({ ephemeral: true });
-
-  // ブロックしたユーザーを取得
-  const userId: string = String(interaction.user.id);
-  const blockedUsers = await prisma.blackLists.findMany({
-    where: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      user_id: String(interaction.user.id),
-    },
-  });
   // ブロック解除処理
-  for (const selectedUserId of selectedUserIds) {
+  for (const selectedUserId of unblockUserIds) {
     if (
       blockedUsers.find((user) => String(user.block_user_id) === selectedUserId)
     ) {
@@ -202,7 +222,7 @@ export async function removeUserFromBlackList(
       await prisma.blackLists.deleteMany({
         where: {
           /* eslint-disable @typescript-eslint/naming-convention */
-          user_id: String(userId),
+          user_id: String(ownerMember.id),
           block_user_id: String(selectedUserId),
           /* eslint-enable @typescript-eslint/naming-convention */
         },
@@ -210,18 +230,7 @@ export async function removeUserFromBlackList(
     }
   }
 
-  // チャンネルの権限を更新
-  const channel = await getConnectedEditableChannel(interaction).catch(
-    () => {},
-  );
-  if (channel) {
-    await editChannelPermission(channel, interaction.user);
-  }
-
-  // リプライを送信
-  await interaction.editReply({
-    content: '選択したユーザーのブロック解除が完了しました',
-  });
+  return { privilegedUsers, alreadyBlockedUsers };
 }
 
 /**
@@ -257,7 +266,7 @@ export async function kickUserFromChannel(
 
   // ユーザーをキック
   for (const selectedUserId of selectedUserIds) {
-    const member = interaction.guild?.members.cache.get(selectedUserId);
+    const member = interaction.guild?.members.resolve(selectedUserId);
     if (member) {
       // VCに入っている場合
       if (member.voice.channelId === channel.id) {
@@ -266,13 +275,120 @@ export async function kickUserFromChannel(
       }
 
       // 許可リクエストを送った人を許可リストから削除
-      await editApprovalUser(channel, [], [member.user]);
+      await editChannelPermission(channel, {
+        memberPermssions: [
+          {
+            id: member.id,
+            approve: false,
+          },
+        ],
+      });
     }
   }
 
   // リプライを送信
   await interaction.editReply({
     content: '選択したユーザーをキックしました',
+  });
+}
+
+/**
+ * ユーザーをミュートする
+ * @param interaction インタラクション
+ */
+export async function muteUserFromChannel(
+  interaction: MessageComponentInteraction,
+): Promise<void> {
+  // ユーザー選択リストを取得
+  const selectedUserIds =
+    userListMenuSelect[`${interaction.message.id}:${interaction.user.id}`];
+  if (!selectedUserIds) {
+    await interaction.reply({
+      content: 'ユーザーが選択されていません。もう一度選択し直してください',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  // チャンネルの権限を更新
+  const channel = await getConnectedEditableChannel(interaction).catch(
+    async (error: Error) => {
+      // エラーが発生した場合、エラーメッセージを返信して処理を終了
+      await interaction.editReply({
+        content: error.message,
+      });
+    },
+  );
+  if (!channel) return;
+
+  // ユーザーをキック
+  const selectedUsers = selectedUserIds
+    .map((selectedUserId) => client.users.resolve(selectedUserId))
+    .filter((user): user is User => user !== null);
+
+  // ミュートする
+  await editChannelPermission(channel, {
+    memberPermssions: selectedUsers.map((user) => ({
+      id: user.id,
+      muted: true,
+    })),
+  });
+
+  // リプライを送信
+  await interaction.editReply({
+    content: '選択したユーザーをミュートしました',
+  });
+}
+
+/**
+ * ユーザーのミュートを解除する
+ * @param interaction インタラクション
+ */
+export async function unmuteUserFromChannel(
+  interaction: MessageComponentInteraction,
+): Promise<void> {
+  // ユーザー選択リストを取得
+  const selectedUserIds =
+    userListMenuSelect[`${interaction.message.id}:${interaction.user.id}`];
+  if (!selectedUserIds) {
+    await interaction.reply({
+      content: 'ユーザーが選択されていません。もう一度選択し直してください',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  // チャンネルの権限を更新
+  const channel = await getConnectedEditableChannel(interaction).catch(
+    async (error: Error) => {
+      // エラーが発生した場合、エラーメッセージを返信して処理を終了
+      await interaction.editReply({
+        content: error.message,
+      });
+    },
+  );
+  if (!channel) return;
+
+  // ユーザーをアンミュート
+  const selectedUsers = selectedUserIds
+    .map((selectedUserId) => client.users.resolve(selectedUserId))
+    .filter((user): user is User => user !== null);
+
+  // アンミュートする
+  await editChannelPermission(channel, {
+    memberPermssions: selectedUsers.map((user) => ({
+      id: user.id,
+      muted: false,
+    })),
+  });
+
+  // リプライを送信
+  await interaction.editReply({
+    content: '選択したユーザーのミュートを解除しました',
   });
 }
 
@@ -302,11 +418,7 @@ async function validatePrivilegedUser(
  * @param ownerUser ユーザー
  * @returns ブロックされているユーザーの権限
  */
-export async function getDenyOverwrites(
-  ownerUser: User,
-): Promise<OverwriteResolvable[]> {
-  const overwrites: OverwriteResolvable[] = [];
-
+export async function getBlockedUsers(ownerUser: User): Promise<User[]> {
   // ブロックしているユーザーを取得
   const allUsers = await prisma.blackLists.findMany({
     where: {
@@ -315,18 +427,9 @@ export async function getDenyOverwrites(
     },
   });
 
-  for (const user of allUsers) {
-    // ユーザーをフェッチしないと内部でresolveに失敗してエラーが出る
-    const blockUser = await client.users.fetch(user.block_user_id);
-    if (blockUser) {
-      overwrites.push({
-        id: blockUser,
-        deny: [denyUserPermisson],
-      });
-    }
-  }
-
-  return overwrites;
+  return await Promise.all(
+    allUsers.map((user) => client.users.fetch(user.block_user_id)),
+  );
 }
 
 /**

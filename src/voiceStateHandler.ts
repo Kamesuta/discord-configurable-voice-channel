@@ -51,7 +51,9 @@ export async function onVoiceStateUpdate(
         // 初めてVCに入った場合、入った人をオーナーにしてチャンネルを初期化する処理
         // -----------------------------------------------------------------------------------------------------------
         // チャンネルの詳細を設定
-        await editChannelPermission(newChannel, member.user);
+        await editChannelPermission(newChannel, {
+          ownerUser: member.user,
+        });
         await onVoiceStatusChange(newChannel);
 
         // メッセージを投稿
@@ -83,7 +85,9 @@ export async function onVoiceStateUpdate(
       if (members.size === 0) {
         // 人がいない場合
         // チャンネルの詳細をリセット
-        await editChannelPermission(oldChannel, undefined);
+        await editChannelPermission(oldChannel, {
+          ownerUser: null, // オーナーを削除
+        });
         await onVoiceStatusChange(oldChannel, null);
 
         // VCの人(Bot以外)がいなくなった場合 → 解散
@@ -113,7 +117,9 @@ export async function onVoiceStateUpdate(
         }
       } else if (getChannelOwner(oldChannel) === member) {
         // オーナーがいない場合はチャンネルを解放する
-        await editChannelPermission(oldChannel, undefined);
+        await editChannelPermission(oldChannel, {
+          ownerUser: null, // オーナーを削除
+        });
         await onVoiceStatusChange(oldChannel, undefined, 'オーナーなし');
 
         // オーナーがいない場合はメッセージを投稿
