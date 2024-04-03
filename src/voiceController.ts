@@ -27,7 +27,6 @@ import {
 import {
   allowCreateUserPermisson,
   allowUserPermisson,
-  denyMutedUserPermisson,
   denyUserPermisson,
   getBlockedUsers,
   getOwnCategoryPermission,
@@ -76,7 +75,7 @@ const roomButtonRow: ActionRowBuilder<ButtonBuilder> =
       .setStyle(ButtonStyle.Primary),
     // 許可制VCをON/OFFするためのボタン
     new ButtonBuilder()
-      .setCustomId('roomLimitPeople')
+      .setCustomId('roomChangePeopleLimit')
       .setLabel('人数制限')
       .setEmoji({
         name: '🛡️',
@@ -95,7 +94,7 @@ const roomButtonRow: ActionRowBuilder<ButtonBuilder> =
 /**
  * ユーザー操作系ボタンの行
  */
-const userButtonMenu1: ActionRowBuilder<ButtonBuilder> =
+const userButtonMenu: ActionRowBuilder<ButtonBuilder> =
   new ActionRowBuilder<ButtonBuilder>().setComponents(
     // ブロックユーザー確認ボタン
     new ButtonBuilder()
@@ -103,6 +102,14 @@ const userButtonMenu1: ActionRowBuilder<ButtonBuilder> =
       .setLabel('ブロック確認')
       .setEmoji({
         name: '📝',
+      })
+      .setStyle(ButtonStyle.Success),
+    // ユーザーキックボタン
+    new ButtonBuilder()
+      .setCustomId('userKick')
+      .setLabel('キック')
+      .setEmoji({
+        name: '🦶',
       })
       .setStyle(ButtonStyle.Success),
     // ブロックボタン
@@ -119,37 +126,6 @@ const userButtonMenu1: ActionRowBuilder<ButtonBuilder> =
       .setLabel('ブロック解除')
       .setEmoji({
         name: '🙆‍♀️',
-      })
-      .setStyle(ButtonStyle.Success),
-  );
-
-/**
- * ユーザー操作系ボタンの行
- */
-const userButtonMenu2: ActionRowBuilder<ButtonBuilder> =
-  new ActionRowBuilder<ButtonBuilder>().setComponents(
-    // ユーザーキックボタン
-    new ButtonBuilder()
-      .setCustomId('userKick')
-      .setLabel('キック')
-      .setEmoji({
-        name: '🦶',
-      })
-      .setStyle(ButtonStyle.Success),
-    // ユーザーミュートボタン
-    new ButtonBuilder()
-      .setCustomId('userMute')
-      .setLabel('ミュート')
-      .setEmoji({
-        name: '🔇',
-      })
-      .setStyle(ButtonStyle.Success),
-    // ユーザーミュート解除ボタン
-    new ButtonBuilder()
-      .setCustomId('userUnmute')
-      .setLabel('ミュート解除')
-      .setEmoji({
-        name: '🔊',
       })
       .setStyle(ButtonStyle.Success),
   );
@@ -274,12 +250,7 @@ export async function updateControlPanel(): Promise<void> {
   if (!panelMessage) {
     await panelChannel.send({
       embeds: [controlPannelEmbed],
-      components: [
-        roomButtonRow,
-        userListMenu,
-        userButtonMenu1,
-        userButtonMenu2,
-      ],
+      components: [roomButtonRow, userListMenu, userButtonMenu],
     });
   }
 }
@@ -316,9 +287,9 @@ export interface MemberChannelPermissionOverwrite {
    */
   approve?: boolean;
   /**
-   * ミュートされているかどうか
+   * ブロックされているかどうか
    */
-  muted?: boolean;
+  blocked?: boolean;
 }
 
 /**
@@ -358,20 +329,12 @@ export async function editChannelPermission(
     // ブロックしているユーザーがいた場合、チャンネルを表示しない
     const blockedUsers = await getBlockedUsers(ownerUser);
 
-    // ブロックを含むユーザーの権限
-    type BlockableMemberChannelPermissionOverwrite =
-      MemberChannelPermissionOverwrite & { blocked?: boolean };
-
     // すべてのユーザーの権限をパース
-    const permissions: BlockableMemberChannelPermissionOverwrite[] = [];
+    const permissions: MemberChannelPermissionOverwrite[] = [];
 
     // デフォルトの権限
-    const defaultPermission: Omit<
-      BlockableMemberChannelPermissionOverwrite,
-      'id'
-    > = {
+    const defaultPermission: Omit<MemberChannelPermissionOverwrite, 'id'> = {
       approve: false,
-      muted: false,
       blocked: false,
     };
 
@@ -380,7 +343,7 @@ export async function editChannelPermission(
      * @param overwrite 権限
      */
     const setPermission = (
-      overwrite: BlockableMemberChannelPermissionOverwrite,
+      overwrite: MemberChannelPermissionOverwrite,
     ): void => {
       // オーナーの権限は無視
       if (overwrite.id === ownerUser.id) return;
@@ -411,17 +374,16 @@ export async function editChannelPermission(
       // パーミッションをセット
       setPermission({
         id: permission.id,
-        approve: permission.allow.has(allowUserApprovalChannelPermisson),
-        muted: permission.deny.has(denyMutedUserPermisson),
-        blocked: blockedUsers.some((user) => user.id === permission.id),
+        approve:
+          permission.allow.has(allowUserApprovalChannelPermisson) && approval,
       });
     }
 
-    // 既に参加しているユーザーは許可する
-    for (const member of channel.members.values()) {
+    // ブロックしているユーザーを追加
+    for (const blockedUser of blockedUsers) {
       setPermission({
-        id: member.id,
-        approve: true,
+        id: blockedUser.id,
+        blocked: true,
       });
     }
 
@@ -439,17 +401,13 @@ export async function editChannelPermission(
         (permission) =>
           !(
             defaultPermission.approve === permission.approve &&
-            defaultPermission.muted === permission.muted &&
             defaultPermission.blocked === permission.blocked
           ),
       )
       .map((permission) => ({
         id: permission.id,
         allow: [permission.approve ? allowUserApprovalChannelPermisson : []],
-        deny: [
-          permission.muted ? denyMutedUserPermisson : [],
-          permission.blocked ? denyUserPermisson : [],
-        ],
+        deny: [permission.blocked ? denyUserPermisson : []],
       }));
 
     // チャンネルの権限をセットする

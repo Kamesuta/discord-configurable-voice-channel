@@ -42,13 +42,6 @@ export const denyUserPermisson: bigint[] = [
 ];
 
 /**
- * ミュートユーザーの権限
- */
-export const denyMutedUserPermisson: bigint[] = [
-  PermissionsBitField.Flags.Speak, // 発言
-];
-
-/**
  * ブロックしているユーザーを表示する際の埋め込みメッセージ
  */
 const showBlackListEmbed: EmbedBuilder = new EmbedBuilder()
@@ -96,7 +89,12 @@ export async function addUserToBlackList(
   );
   if (channel) {
     // ブロック設定をチャンネルに反映
-    await editChannelPermission(channel, {});
+    await editChannelPermission(channel, {
+      memberPermssions: selectedUserIds.map((id) => ({
+        id,
+        approve: true, // ブロックされても入っている間はチャットが使えるようにする
+      })),
+    });
   }
 
   // リプライを送信
@@ -267,128 +265,24 @@ export async function kickUserFromChannel(
   // ユーザーをキック
   for (const selectedUserId of selectedUserIds) {
     const member = interaction.guild?.members.resolve(selectedUserId);
-    if (member) {
-      // VCに入っている場合
-      if (member.voice.channelId === channel.id) {
-        // キック
-        await member.voice.disconnect();
-      }
-
-      // 許可リクエストを送った人を許可リストから削除
-      await editChannelPermission(channel, {
-        memberPermssions: [
-          {
-            id: member.id,
-            approve: false,
-          },
-        ],
-      });
+    // VCに入っている場合
+    if (member?.voice.channelId === channel.id) {
+      // キック
+      await member.voice.disconnect();
     }
   }
+
+  // 許可リクエストを送った人を許可リストから削除
+  await editChannelPermission(channel, {
+    memberPermssions: selectedUserIds.map((id) => ({
+      id,
+      approve: false,
+    })),
+  });
 
   // リプライを送信
   await interaction.editReply({
     content: '選択したユーザーをキックしました',
-  });
-}
-
-/**
- * ユーザーをミュートする
- * @param interaction インタラクション
- */
-export async function muteUserFromChannel(
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  // ユーザー選択リストを取得
-  const selectedUserIds =
-    userListMenuSelect[`${interaction.message.id}:${interaction.user.id}`];
-  if (!selectedUserIds) {
-    await interaction.reply({
-      content: 'ユーザーが選択されていません。もう一度選択し直してください',
-      ephemeral: true,
-    });
-    return;
-  }
-
-  await interaction.deferReply({ ephemeral: true });
-
-  // チャンネルの権限を更新
-  const channel = await getConnectedEditableChannel(interaction).catch(
-    async (error: Error) => {
-      // エラーが発生した場合、エラーメッセージを返信して処理を終了
-      await interaction.editReply({
-        content: error.message,
-      });
-    },
-  );
-  if (!channel) return;
-
-  // ユーザーをキック
-  const selectedUsers = selectedUserIds
-    .map((selectedUserId) => client.users.resolve(selectedUserId))
-    .filter((user): user is User => user !== null);
-
-  // ミュートする
-  await editChannelPermission(channel, {
-    memberPermssions: selectedUsers.map((user) => ({
-      id: user.id,
-      muted: true,
-    })),
-  });
-
-  // リプライを送信
-  await interaction.editReply({
-    content: '選択したユーザーをミュートしました',
-  });
-}
-
-/**
- * ユーザーのミュートを解除する
- * @param interaction インタラクション
- */
-export async function unmuteUserFromChannel(
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  // ユーザー選択リストを取得
-  const selectedUserIds =
-    userListMenuSelect[`${interaction.message.id}:${interaction.user.id}`];
-  if (!selectedUserIds) {
-    await interaction.reply({
-      content: 'ユーザーが選択されていません。もう一度選択し直してください',
-      ephemeral: true,
-    });
-    return;
-  }
-
-  await interaction.deferReply({ ephemeral: true });
-
-  // チャンネルの権限を更新
-  const channel = await getConnectedEditableChannel(interaction).catch(
-    async (error: Error) => {
-      // エラーが発生した場合、エラーメッセージを返信して処理を終了
-      await interaction.editReply({
-        content: error.message,
-      });
-    },
-  );
-  if (!channel) return;
-
-  // ユーザーをアンミュート
-  const selectedUsers = selectedUserIds
-    .map((selectedUserId) => client.users.resolve(selectedUserId))
-    .filter((user): user is User => user !== null);
-
-  // アンミュートする
-  await editChannelPermission(channel, {
-    memberPermssions: selectedUsers.map((user) => ({
-      id: user.id,
-      muted: false,
-    })),
-  });
-
-  // リプライを送信
-  await interaction.editReply({
-    content: '選択したユーザーのミュートを解除しました',
   });
 }
 

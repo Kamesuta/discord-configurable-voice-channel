@@ -323,6 +323,11 @@ export async function toggleApproval(
   // 許可制VCかどうかを切り替え
   await editChannelPermission(channel, {
     approval,
+    // 既に参加しているユーザーは許可する
+    memberPermssions: [...channel.members.values()].map((member) => ({
+      id: member.id,
+      approve: true,
+    })),
   });
 
   // リプライを送信
