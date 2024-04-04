@@ -62,7 +62,7 @@ export const toggleApprovalEmbed = (enabled: boolean): EmbedBuilder =>
     .setTitle('許可制VCの設定が変更されました')
     .setDescription(
       enabled
-        ? '許可制VCがONになりました\n「↓ 参加待機」VCに入るとリクエスト通知が来ます'
+        ? '許可制VCがONになりました\n「↓ 参加待機部屋」VCに入るとリクエスト通知が来ます'
         : '許可制VCがOFFになりました',
     );
 
@@ -193,7 +193,7 @@ export async function setApprovalWaitChannel(
       // 参加待ちチャンネルを作成
       const newWaitChannel = await channel.guild.channels.create({
         type: ChannelType.GuildVoice,
-        name: '↓ 参加待機',
+        name: '↓ 参加待機部屋',
         parent: channel.parent,
         position: channel.rawPosition - 1, // 本VCの上に配置
       });

@@ -152,7 +152,11 @@ export async function onVoiceStateUpdate(
           await member.voice.setChannel(channel);
         } else {
           // メッセージを投稿
+          const owner = getChannelOwner(channel);
           await channel.send({
+            content: !owner
+              ? undefined
+              : `<@${owner.id}> 参加リクエストが来ました！`,
             embeds: [approvalRequestEmbed(member.user, false)],
             components: [approvalRequestButtonRow],
           });
