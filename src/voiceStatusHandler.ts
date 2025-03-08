@@ -6,6 +6,7 @@ import {
 } from 'discord.js';
 
 import { config, getChannelEntry } from './utils/config.js';
+import { getApprovalWaitChannel } from './voiceApproval.js';
 import { getChannelOwner } from './voiceController.js';
 
 import { client } from './index.js';
@@ -122,29 +123,38 @@ export async function onVoiceStatusChange(
   if (status === undefined) {
     status = getVoiceStatus(channel);
   }
+  const prevStatus = status;
 
-  // statusがnullまたは空の場合、オーナーだけをステータスに設定する
   if (!status) {
-    await setVoiceStatus(channel, `(👑${ownerName})`);
-    return;
+    // statusがnullまたは空の場合、オーナーだけをステータスに設定する
+    status = `(👑${ownerName})`;
+  } else {
+    // ステータスの最後にオーナーが含まれているか確認
+    // (👑名前) のような名前が含まれるはず
+    const statusPattern = /\(👑(.+)\)/;
+    const match = status.match(statusPattern);
+    if (match) {
+      // オーナーが既に含まれている場合、オーナーの名前を更新する必要がない
+      if (match[1] !== ownerName) {
+        // オーナーの名前を更新する
+        status = status.replace(statusPattern, `(👑${ownerName})`);
+      }
+    } else {
+      // ステータスにオーナーが含まれていない場合、追加する
+      status = `${status} (👑${ownerName})`;
+    }
   }
 
-  // ステータスの最後にオーナーが含まれているか確認
-  // (👑名前) のような名前が含まれるはず
-  const statusPattern = /\(👑(.+)\)/;
-  const match = status.match(statusPattern);
-  if (match) {
-    // オーナーが既に含まれている場合、オーナーの名前を更新する必要がない
-    if (match[1] === ownerName) return;
+  // ステータスを更新
+  if (prevStatus !== status) {
+    await setVoiceStatus(channel, status);
+  }
 
-    // オーナーの名前を更新する
-    await setVoiceStatus(
-      channel,
-      status.replace(statusPattern, `(👑${ownerName})`),
-    );
-  } else {
-    // ステータスにオーナーが含まれていない場合、追加する
-    await setVoiceStatus(channel, `${status} (👑${ownerName})`);
+  // 参加待機VCを取得
+  const waitChannel = await getApprovalWaitChannel(channel);
+  if (waitChannel) {
+    // 参加待機VCのステータスを更新
+    await setVoiceStatus(waitChannel, status);
   }
 }
 

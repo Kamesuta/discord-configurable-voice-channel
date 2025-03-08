@@ -250,6 +250,33 @@ export async function setApprovalWaitChannel(
 }
 
 /**
+ * 参加待ちチャンネルを取得する
+ * @param channel チャンネル
+ * @returns 参加待ちチャンネル
+ */
+export async function getApprovalWaitChannel(
+  channel: VoiceBasedChannel,
+): Promise<VoiceBasedChannel | undefined> {
+  // VCに紐づけされた参加待ちチャンネルを取得
+  const room = await prisma.roomLists.findUnique({
+    where: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      channel_id: String(channel.id),
+    },
+  });
+  const waitChannelId = room?.wait_channel_id;
+  if (!waitChannelId) return;
+
+  // チャンネルを取得
+  const waitChannel = await channel.guild.channels
+    .fetch(waitChannelId)
+    .catch(() => undefined);
+  if (!waitChannel?.isVoiceBased()) return;
+
+  return waitChannel;
+}
+
+/**
  * 許可リクエストのEmbedか判定
  * @param message メッセージ
  * @returns 許可リクエストのEmbedかどうか
