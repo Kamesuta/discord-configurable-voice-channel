@@ -18,6 +18,7 @@ import {
 } from 'discord.js';
 
 import { config, getChannelEntry } from './utils/config.js';
+import { logger } from './utils/log.js';
 import {
   allowUserApprovalChannelPermisson,
   denyUserApprovalChannelPermisson,
@@ -237,12 +238,19 @@ export async function updateControlPanel(): Promise<void> {
   // チャンネルを取得
   // -----------------------------------------------------------------------------------------------------------
   const panelChannel = client.channels.resolve(config.controlPanelChannelId);
-  if (!panelChannel?.isTextBased()) {
+  if (!panelChannel?.isTextBased() || panelChannel.isDMBased()) {
     throw new Error('VC操作パネルを投稿するチャンネルが見つかりませんでした。');
   }
   const panelMessage = config.controlPanelMessageId
     ? await panelChannel.messages.fetch(config.controlPanelMessageId)
     : undefined;
+
+  // -----------------------------------------------------------------------------------------------------------
+  // サーバーにいる人を全員取得
+  // -----------------------------------------------------------------------------------------------------------
+  logger.info('サーバーにいる人を全員取得中...');
+  await panelChannel.guild.members.fetch();
+  logger.info('サーバーにいる人を全員取得完了');
 
   // -----------------------------------------------------------------------------------------------------------
   // チャンネルの設定をパネルに反映する
