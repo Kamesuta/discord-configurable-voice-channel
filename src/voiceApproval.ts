@@ -195,8 +195,14 @@ export async function setApprovalWaitChannel(
         type: ChannelType.GuildVoice,
         name: '↓ 参加待機部屋',
         parent: channel.parent,
-        position: channel.rawPosition - 1, // 本VCの上に配置
       });
+      // 一回ここでチャンネルの位置を全取得して、最新の位置を把握する
+      await channel.guild.channels.fetch();
+      // 本VCを参加待ちチャンネルを下に配置 (create時にpositionを指定するとエラーが発生するため、ここで設定しておく)
+      await channel.guild.channels.setPosition(
+        newWaitChannel.id,
+        channel.position,
+      );
 
       // 参加待ちチャンネルに権限を設定
       // ※一度チャンネルを作成してから権限を設定しないとエラーが発生するため注意
