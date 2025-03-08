@@ -26,6 +26,7 @@ import {
   MenuInteraction,
   prisma,
 } from './voiceController.js';
+import { getVoiceStatus, setVoiceStatus } from './voiceStatusHandler.js';
 
 import { client } from './index.js';
 
@@ -231,6 +232,12 @@ export async function setApprovalWaitChannel(
         },
         /* eslint-enable @typescript-eslint/naming-convention */
       });
+
+      // ステータスを更新
+      const status = getVoiceStatus(channel);
+      if (status) {
+        await setVoiceStatus(newWaitChannel, status);
+      }
     }
   } else if (!approval && waitChannel) {
     // 許可制VCをOFFにした場合、参加待ちチャンネルを削除
