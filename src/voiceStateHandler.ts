@@ -154,11 +154,15 @@ export async function onVoiceStateUpdate(
           // メッセージを投稿
           const owner = getChannelOwner(channel);
           await channel.send({
-            content: !owner
-              ? undefined
-              : `<@${owner.id}> 参加リクエストが来ました！`,
+            content: `<@${owner?.id}> 参加リクエストが来ました！`,
             embeds: [approvalRequestEmbed(member.user, false)],
             components: [approvalRequestButtonRow],
+          });
+
+          // お待ち下さいメッセージを投稿
+          await newChannel.send({
+            content: `<@${member.id}> 許可制VCへようこそ！\n<@${owner?.id}> が参加リクエストを承認するとVCに入れます。\n承認までしばらくお待ちください～！`,
+            allowedMentions: { users: [member.id] },
           });
         }
       }
