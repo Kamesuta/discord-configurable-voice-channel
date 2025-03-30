@@ -1,24 +1,21 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
-  url = env("DATABASE_URL")
-  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model BlackLists {
-  id Int @default(autoincrement()) @id
-  user_id String
+  id            BigInt @id @default(autoincrement())
+  user_id       String
   block_user_id String
 }
 
 model RoomLists {
-  id Int @default(autoincrement()) @id
-  channel_id String @unique
+  id              BigInt  @id @default(autoincrement())
+  channel_id      String  @unique
   wait_channel_id String?
 }
