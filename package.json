@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit && eslint --cache --fix",
     "prettier": "prettier --write",
     "lint-staged": "lint-staged",
-    "prepare": "if-env NODE_ENV=production && echo 'Skipping husky in production' || husky install",
+    "prepare": "if-env NODE_ENV=production && echo 'Skipping husky in production' || husky",
     "heroku-postbuild": "prisma generate && prisma migrate deploy"
   },
   "author": "Kamesuta",
