@@ -186,7 +186,8 @@ export async function onVoiceStateUpdate(
         const requestMessage = messages.find(
           (message) =>
             message.author.id === channel.client.user?.id &&
-            message.embeds[0].footer?.text === approvalRequestTips,
+            message.embeds[0].footer?.text === approvalRequestTips &&
+            message.embeds[0].description?.includes(`<@${member.id}>`), // メンバーIDでフィルタリングを追加
         );
 
         if (channel.id === newChannel?.id) {
